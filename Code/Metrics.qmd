@@ -1,0 +1,236 @@
+---
+title: "Metricas de diversidad Metrics"
+format: pdf
+editor: visual
+---
+
+## Cargar paquetes
+
+```{r, warning=F,echo=TRUE}
+library(sf)# para leer mapas
+library(phytools) #para trabajar con filogenias
+library(picante) #para calcular metricas de diversidad
+library (letsR)# matrices
+library (terra)
+library(ggplot2)
+sf_use_s2(F)#desactivar goemetría esferica
+```
+
+## Datos a utilizar
+
+Para este y todos los ejercicios, vamos a utlizar datos de distribución de Icteridae (Aves:Passeriformes)
+
+Por supuesto, si tienen sus propios datos, podemos explorarlos.
+
+## Datos a utilizar
+
+Datos geográficos
+
+(Estos datos fueron obtenidos de los mapas de expertos de BirdLife International & Handbook of the Birds of the World, 2024)
+
+```{r,echo=TRUE}
+maps<- read_sf("../data/maps/")
+plot(maps)
+```
+
+Datos filogenéticos
+
+```{r,echo=TRUE}
+phylo<-read.tree("../data/treevirens.tre")
+plot(phylo,show.tip.label=F,type="fan")
+```
+
+Filogenía podada de Barker et al., (2015) para Emberizoidea.
+
+## Diversidad Filogenética (PD)
+
+Para calcular Diversidad Filogenética, primero debemos crear una matriz de presencia-ausencia (PAM)
+
+Esto se lleva a cabo usando el paquete letsR
+
+```{r,echo=TRUE}
+ictPAM<-lets.presab(maps,resol = 1,remove.cells = T)
+plot(ictPAM$Richness_Raster)
+```
+
+Ahora probamos que las especies de la filogenía se encuentren en el mapa y vicieversa
+
+```{r}
+matchphy<-match.phylo.comm(phylo,ictPAM$Presence_and_Absence_Matrix)
+```
+
+Todas las especies de la filogenía están en el mapa y viceversa.
+
+Ahora, creamos una matriz PAM sin las coordenadas para determinar PD
+
+pero primero guardamos las coordendas
+
+```{r,echo=TRUE}
+ictcoords<-ictPAM$Presence_and_Absence_Matrix[,c(1:2)]
+head(ictcoords)
+```
+
+Ahora calculamos PD usando picante
+
+```{r,echo=TRUE}
+ictpd<-pd(ictPAM$Presence_and_Absence_Matrix[,-c(1,2)],phylo,include.root = T)
+head(ictpd)
+```
+
+Y juntamos con las coordenadas
+
+```{r,echo=TRUE}
+ictpdcr<-data.frame(cbind(ictcoords,ictpd$PD))
+colnames(ictpdcr)<-c("x","y","pd")
+head(ictpdcr)
+```
+
+Veamoslo en el mapa
+
+usando Terra
+
+```{r,echo=TRUE}
+pdrast<-rast(ictpdcr,crs=crs(ictPAM$Richness_Raster))
+plot(pdrast)
+```
+
+## rPD
+
+Este cálculo sigue la misma lógica, sólo que primero debemos cálcular el rPD incorporando una relación entre PD y SR, y después extrayendo los residuales
+
+Primero veamos su relación
+
+```{r}
+ggplot(ictpd,aes(x=SR,y=PD))+
+  geom_point()+
+  geom_smooth(method = "loess",color="red",fill="lightblue")+
+  theme_minimal()
+```
+
+Ahora calculamos la relación usando LOESS y extramos los residuales
+
+```{r,echo=TRUE}
+loesspd<-loess(PD~SR,data=ictpd)
+rpd<-loesspd$residuals
+```
+
+Agregamos coordenadas y mapeamos
+
+```{r,echo=TRUE}
+rpdcrs<-data.frame(ictcoords,rpd)
+names(rpdcrs)<-c("x","y","rpd")
+rpdrast<-rast(rpdcrs,crs=crs(ictPAM$Richness_Raster))
+plot(rpdrast)
+```
+
+## Phylogenetic Endemism
+
+Picante no puede calcular filoendemismo, pero APE (integrado en Phytools) puede ayudarnos a crear una función que lo haga
+
+```{r,echo=T}
+source("PE_calc.R")
+```
+
+Está función calcula la sumatoria de la relación longitud de rama/rango de la rama para cada punto.
+
+```{r,echo=T}
+pe<-PE_calc(ictPAM$Presence_and_Absence_Matrix[,-c(1,2)],phylo,weighted = T)
+pecr<-data.frame(ictcoords,pe)
+names(pecr)<-c("x","y","PE")
+head(pecr)
+```
+
+Ahora veamoslo en el mapa
+
+```{r,echo=T}
+perast<-rast(pecr,crs=crs(ictPAM$Richness_Raster))
+plot(perast)
+```
+
+## Phylogenetic Endemism 2
+
+Otros paquetes como Phyloregion pueden hacerlo de otra manera:
+
+Aunque esto puede requerir más transformaciones
+
+```{r,echo=TRUE}
+library (phyloregion)
+library(trans4m8)
+pointsict<-trans4m8::pam2points(ictPAM,phylo_names = F,gridid = F)
+points2<-data.frame(species=pointsict$sp,decimallongitude=pointsict$lon,decimallatitude=pointsict$lat)
+sparspam<-points2comm(points2,res=1)
+sparspam1<-sparspam$comm_dat
+pe<-phylo_endemism(sparspam1,phylo)
+pe_merged<-merge(sparspam$map,data.frame(grids=names(pe),pe=pe),by="grids")
+pe_merged<-pe_merged[!is.na(pe_merged$pe),]
+plot(pe_merged,"pe",border=NA,type="continuous",col = hcl.colors(n=20, palette = "Blue-Red 3", rev=FALSE))
+```
+
+## NRI
+
+para calcular NRI, volvemos a hacer uso de picante.
+
+Calculamos primero el ses.mpd, esto requiere una matriz de distancias filogeneticas
+
+```{r,echo=TRUE}
+phylodist<-cophenetic(phylo)
+
+```
+
+Ahora si, calculamos
+
+```{r,echo=TRUE}
+smpd<-ses.mpd(ictPAM$Presence_and_Absence_Matrix[,-c(1,2)],phylodist,iterations = 1000,null.model = "taxa.labels")
+head(smpd)
+```
+
+Para calcular nri, debemos multiplicar el mpd.obs.z \* -1
+
+```{r,echo=TRUE}
+
+NRIct<-smpd$mpd.obs.z*-1
+NRIictcr<-data.frame(ictcoords,NRIct)
+names(NRIictcr)<-c("x","y","NRI")
+head(NRIictcr)
+
+```
+
+## NRI
+
+Los NA es de sitios donde sólo hay una especie
+
+Mapeemos
+
+```{r,echo=TRUE}
+nrirast<-rast(NRIictcr,crs=crs(ictPAM$Richness_Raster))
+nrirdf<-as.data.frame(nrirast,xy=T)
+ggplot(data=nrirdf)+
+  geom_raster(aes(x=x,y=y,fill=NRI))+
+  scale_fill_viridis_b()+
+  theme_void()
+```
+
+## EDGE
+
+phyloregion también puede calcular EDGE, para esto necesitamos las categorías de reisgo para las especies
+
+```{r,echo=TRUE}
+iucnlist<-read.csv("../data/iucnlist.csv",header=T)
+```
+
+Ahora podemos usar la función de EDGE de Phyloregion
+
+```{r,echo=TRUE}
+spedge<-EDGE(iucnlist,phylo,Redlist = "IUCN",species = "Species")
+edgdf<-data.frame(spedge)
+iucnmap<-lets.maplizer(x=ictPAM,y=edgdf$spedge,z=row.names(edgdf),ras=T,func=mean)
+plot(iucnmap$Raster)
+```
+
+lets save the rasters for later use
+
+```{r}
+writeRaster(pdrast,"../Data/pdrast.tiff")
+writeRaster(nrirast,"../Data/nrirast.tiff")
+writeRaster(iucnmap$Raster,"../Data/iucnmap.tiff")
+```
