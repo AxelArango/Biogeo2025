@@ -1,0 +1,5081 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.353">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Diversity Metrics</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="Metrics_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Metrics_files/libs/quarto-html/quarto.js"></script>
+<script src="Metrics_files/libs/quarto-html/popper.min.js"></script>
+<script src="Metrics_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Metrics_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Metrics_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Metrics_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Metrics_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Metrics_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Metrics_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Diversity Metrics</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="cargar-paquetes" class="level2">
+<h2 class="anchored" data-anchor-id="cargar-paquetes">Cargar paquetes</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)<span class="co"># para leer mapas</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Linking to GEOS 3.13.0, GDAL 3.8.5, PROJ 9.5.1; sf_use_s2() is TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(phytools) <span class="co">#para trabajar con filogenias</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: ape</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: maps</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(picante) <span class="co">#para calcular metricas de diversidad</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: vegan</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: permute</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'vegan'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following object is masked from 'package:phytools':
+
+    scores</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: nlme</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span> (letsR)<span class="co"># matrices</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: terra</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>terra 1.8.54</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'terra'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following object is masked from 'package:phytools':
+
+    rescale</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:ape':
+
+    rotate, trans, zoom</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span> (terra)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sf_use_s2</span>(F)<span class="co">#desactivar goemetría esferica</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Spherical geometry (s2) switched off</code></pre>
+</div>
+</div>
+</section>
+<section id="datos-a-utilizar" class="level2">
+<h2 class="anchored" data-anchor-id="datos-a-utilizar">Datos a utilizar</h2>
+<p>Para este y todos los ejercicios, vamos a utlizar datos de distribución de Icteridae (Aves:Passeriformes)</p>
+<p>Por supuesto, si tienen sus propios datos, podemos explorarlos.</p>
+</section>
+<section id="datos-a-utilizar-1" class="level2">
+<h2 class="anchored" data-anchor-id="datos-a-utilizar-1">Datos a utilizar</h2>
+<p>Datos geográficos</p>
+<p>(Estos datos fueron obtenidos de los mapas de expertos de BirdLife International &amp; Handbook of the Birds of the World, 2024)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>maps<span class="ot">&lt;-</span> <span class="fu">read_sf</span>(<span class="st">"../data/maps/"</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(maps)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Datos filogenéticos</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>phylo<span class="ot">&lt;-</span><span class="fu">read.tree</span>(<span class="st">"../data/treevirens.tre"</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(phylo,<span class="at">show.tip.label=</span>F,<span class="at">type=</span><span class="st">"fan"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Filogenía podada de Barker et al., (2015) para Emberizoidea.</p>
+</section>
+<section id="diversidad-filogenética-pd" class="level2">
+<h2 class="anchored" data-anchor-id="diversidad-filogenética-pd">Diversidad Filogenética (PD)</h2>
+<p>Para calcular Diversidad Filogenética, primero debemos crear una matriz de presencia-ausencia (PAM)</p>
+<p>Esto se lleva a cabo usando el paquete letsR</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>ictPAM<span class="ot">&lt;-</span><span class="fu">lets.presab</span>(maps,<span class="at">resol =</span> <span class="dv">1</span>,<span class="at">remove.cells =</span> T)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(ictPAM<span class="sc">$</span>Richness_Raster)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Ahora probamos que las especies de la filogenía se encuentren en el mapa y vicieversa</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>matchphy<span class="ot">&lt;-</span><span class="fu">match.phylo.comm</span>(phylo,ictPAM<span class="sc">$</span>Presence_and_Absence_Matrix)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Dropping taxa from the community because they are not present in the phylogeny:"
+[1] "Longitude(x)" "Latitude(y)" </code></pre>
+</div>
+</div>
+<p>Todas las especies de la filogenía están en el mapa y viceversa.</p>
+<p>Ahora, creamos una matriz PAM sin las coordenadas para determinar PD</p>
+<p>pero primero guardamos las coordendas</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>ictcoords<span class="ot">&lt;-</span>ictPAM<span class="sc">$</span>Presence_and_Absence_Matrix[,<span class="fu">c</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>)]</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(ictcoords)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     Longitude(x) Latitude(y)
+[1,]    -147.6927    69.51782
+[2,]    -146.6927    69.51782
+[3,]    -145.6927    69.51782
+[4,]    -144.6927    69.51782
+[5,]    -133.6927    69.51782
+[6,]    -132.6927    69.51782</code></pre>
+</div>
+</div>
+<p>Ahora calculamos PD usando picante</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>ictpd<span class="ot">&lt;-</span><span class="fu">pd</span>(ictPAM<span class="sc">$</span>Presence_and_Absence_Matrix[,<span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)],phylo,<span class="at">include.root =</span> T)</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(ictpd)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       PD SR
+1 11.2909  1
+2 11.2909  1
+3 11.2909  1
+4 11.2909  1
+5 11.2909  1
+6 11.2909  1</code></pre>
+</div>
+</div>
+<p>Y juntamos con las coordenadas</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>ictpdcr<span class="ot">&lt;-</span><span class="fu">data.frame</span>(<span class="fu">cbind</span>(ictcoords,ictpd<span class="sc">$</span>PD))</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(ictpdcr)<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="st">"x"</span>,<span class="st">"y"</span>,<span class="st">"pd"</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(ictpdcr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          x        y      pd
+1 -147.6927 69.51782 11.2909
+2 -146.6927 69.51782 11.2909
+3 -145.6927 69.51782 11.2909
+4 -144.6927 69.51782 11.2909
+5 -133.6927 69.51782 11.2909
+6 -132.6927 69.51782 11.2909</code></pre>
+</div>
+</div>
+<p>Veamoslo en el mapa</p>
+<p>usando Terra</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>pdrast<span class="ot">&lt;-</span><span class="fu">rast</span>(ictpdcr,<span class="at">crs=</span><span class="fu">crs</span>(ictPAM<span class="sc">$</span>Richness_Raster))</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(pdrast)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="rpd" class="level2">
+<h2 class="anchored" data-anchor-id="rpd">rPD</h2>
+<p>Este cálculo sigue la misma lógica, sólo que primero debemos cálcular el rPD incorporando una relación entre PD y SR, y después extrayendo los residuales</p>
+<p>Primero veamos su relación</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(ictpd,<span class="fu">aes</span>(<span class="at">x=</span>SR,<span class="at">y=</span>PD))<span class="sc">+</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>()<span class="sc">+</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"loess"</span>,<span class="at">color=</span><span class="st">"red"</span>,<span class="at">fill=</span><span class="st">"lightblue"</span>)<span class="sc">+</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>`geom_smooth()` using formula = 'y ~ x'</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Ahora calculamos la relación usando LOESS y extramos los residuales</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>loesspd<span class="ot">&lt;-</span><span class="fu">loess</span>(PD<span class="sc">~</span>SR,<span class="at">data=</span>ictpd)</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>rpd<span class="ot">&lt;-</span>loesspd<span class="sc">$</span>residuals</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Agregamos coordenadas y mapeamos</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>rpdcrs<span class="ot">&lt;-</span><span class="fu">data.frame</span>(ictcoords,rpd)</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(rpdcrs)<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="st">"x"</span>,<span class="st">"y"</span>,<span class="st">"rpd"</span>)</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>rpdrast<span class="ot">&lt;-</span><span class="fu">rast</span>(rpdcrs,<span class="at">crs=</span><span class="fu">crs</span>(ictPAM<span class="sc">$</span>Richness_Raster))</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(rpdrast)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="phylogenetic-endemism" class="level2">
+<h2 class="anchored" data-anchor-id="phylogenetic-endemism">Phylogenetic Endemism</h2>
+<p>Picante no puede calcular filoendemismo, pero APE (integrado en Phytools) puede ayudarnos a crear una función que lo haga</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"PE_calc.R"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Está función calcula la sumatoria de la relación longitud de rama/rango de la rama para cada punto.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>pe<span class="ot">&lt;-</span><span class="fu">PE_calc</span>(ictPAM<span class="sc">$</span>Presence_and_Absence_Matrix[,<span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)],phylo,<span class="at">weighted =</span> T)</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>pecr<span class="ot">&lt;-</span><span class="fu">data.frame</span>(ictcoords,pe)</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(pecr)<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="st">"x"</span>,<span class="st">"y"</span>,<span class="st">"PE"</span>)</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pecr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          x        y         PE
+1 -147.6927 69.51782 0.00843234
+2 -146.6927 69.51782 0.00843234
+3 -145.6927 69.51782 0.00843234
+4 -144.6927 69.51782 0.00843234
+5 -133.6927 69.51782 0.00843234
+6 -132.6927 69.51782 0.00843234</code></pre>
+</div>
+</div>
+<p>Ahora veamoslo en el mapa</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>perast<span class="ot">&lt;-</span><span class="fu">rast</span>(pecr,<span class="at">crs=</span><span class="fu">crs</span>(ictPAM<span class="sc">$</span>Richness_Raster))</span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(perast)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="phylogenetic-endemism-2" class="level2">
+<h2 class="anchored" data-anchor-id="phylogenetic-endemism-2">Phylogenetic Endemism 2</h2>
+<p>Otros paquetes como Phyloregion pueden hacerlo de otra manera:</p>
+<p>Aunque esto puede requerir más transformaciones</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span> (phyloregion)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'phyloregion'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following object is masked from 'package:picante':
+
+    unifrac</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(trans4m8)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: dplyr</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'dplyr'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:terra':
+
+    intersect, union</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following object is masked from 'package:nlme':
+
+    collapse</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following object is masked from 'package:ape':
+
+    where</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:stats':
+
+    filter, lag</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>pointsict<span class="ot">&lt;-</span>trans4m8<span class="sc">::</span><span class="fu">pam2points</span>(ictPAM,<span class="at">phylo_names =</span> F,<span class="at">gridid =</span> F)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Finished 1 of 4384
+Finished 2 of 4384
+Finished 3 of 4384
+Finished 4 of 4384
+Finished 5 of 4384
+Finished 6 of 4384
+Finished 7 of 4384
+Finished 8 of 4384
+Finished 9 of 4384
+Finished 10 of 4384
+Finished 11 of 4384
+Finished 12 of 4384
+Finished 13 of 4384
+Finished 14 of 4384
+Finished 15 of 4384
+Finished 16 of 4384
+Finished 17 of 4384
+Finished 18 of 4384
+Finished 19 of 4384
+Finished 20 of 4384
+Finished 21 of 4384
+Finished 22 of 4384
+Finished 23 of 4384
+Finished 24 of 4384
+Finished 25 of 4384
+Finished 26 of 4384
+Finished 27 of 4384
+Finished 28 of 4384
+Finished 29 of 4384
+Finished 30 of 4384
+Finished 31 of 4384
+Finished 32 of 4384
+Finished 33 of 4384
+Finished 34 of 4384
+Finished 35 of 4384
+Finished 36 of 4384
+Finished 37 of 4384
+Finished 38 of 4384
+Finished 39 of 4384
+Finished 40 of 4384
+Finished 41 of 4384
+Finished 42 of 4384
+Finished 43 of 4384
+Finished 44 of 4384
+Finished 45 of 4384
+Finished 46 of 4384
+Finished 47 of 4384
+Finished 48 of 4384
+Finished 49 of 4384
+Finished 50 of 4384
+Finished 51 of 4384
+Finished 52 of 4384
+Finished 53 of 4384
+Finished 54 of 4384
+Finished 55 of 4384
+Finished 56 of 4384
+Finished 57 of 4384
+Finished 58 of 4384
+Finished 59 of 4384
+Finished 60 of 4384
+Finished 61 of 4384
+Finished 62 of 4384
+Finished 63 of 4384
+Finished 64 of 4384
+Finished 65 of 4384
+Finished 66 of 4384
+Finished 67 of 4384
+Finished 68 of 4384
+Finished 69 of 4384
+Finished 70 of 4384
+Finished 71 of 4384
+Finished 72 of 4384
+Finished 73 of 4384
+Finished 74 of 4384
+Finished 75 of 4384
+Finished 76 of 4384
+Finished 77 of 4384
+Finished 78 of 4384
+Finished 79 of 4384
+Finished 80 of 4384
+Finished 81 of 4384
+Finished 82 of 4384
+Finished 83 of 4384
+Finished 84 of 4384
+Finished 85 of 4384
+Finished 86 of 4384
+Finished 87 of 4384
+Finished 88 of 4384
+Finished 89 of 4384
+Finished 90 of 4384
+Finished 91 of 4384
+Finished 92 of 4384
+Finished 93 of 4384
+Finished 94 of 4384
+Finished 95 of 4384
+Finished 96 of 4384
+Finished 97 of 4384
+Finished 98 of 4384
+Finished 99 of 4384
+Finished 100 of 4384
+Finished 101 of 4384
+Finished 102 of 4384
+Finished 103 of 4384
+Finished 104 of 4384
+Finished 105 of 4384
+Finished 106 of 4384
+Finished 107 of 4384
+Finished 108 of 4384
+Finished 109 of 4384
+Finished 110 of 4384
+Finished 111 of 4384
+Finished 112 of 4384
+Finished 113 of 4384
+Finished 114 of 4384
+Finished 115 of 4384
+Finished 116 of 4384
+Finished 117 of 4384
+Finished 118 of 4384
+Finished 119 of 4384
+Finished 120 of 4384
+Finished 121 of 4384
+Finished 122 of 4384
+Finished 123 of 4384
+Finished 124 of 4384
+Finished 125 of 4384
+Finished 126 of 4384
+Finished 127 of 4384
+Finished 128 of 4384
+Finished 129 of 4384
+Finished 130 of 4384
+Finished 131 of 4384
+Finished 132 of 4384
+Finished 133 of 4384
+Finished 134 of 4384
+Finished 135 of 4384
+Finished 136 of 4384
+Finished 137 of 4384
+Finished 138 of 4384
+Finished 139 of 4384
+Finished 140 of 4384
+Finished 141 of 4384
+Finished 142 of 4384
+Finished 143 of 4384
+Finished 144 of 4384
+Finished 145 of 4384
+Finished 146 of 4384
+Finished 147 of 4384
+Finished 148 of 4384
+Finished 149 of 4384
+Finished 150 of 4384
+Finished 151 of 4384
+Finished 152 of 4384
+Finished 153 of 4384
+Finished 154 of 4384
+Finished 155 of 4384
+Finished 156 of 4384
+Finished 157 of 4384
+Finished 158 of 4384
+Finished 159 of 4384
+Finished 160 of 4384
+Finished 161 of 4384
+Finished 162 of 4384
+Finished 163 of 4384
+Finished 164 of 4384
+Finished 165 of 4384
+Finished 166 of 4384
+Finished 167 of 4384
+Finished 168 of 4384
+Finished 169 of 4384
+Finished 170 of 4384
+Finished 171 of 4384
+Finished 172 of 4384
+Finished 173 of 4384
+Finished 174 of 4384
+Finished 175 of 4384
+Finished 176 of 4384
+Finished 177 of 4384
+Finished 178 of 4384
+Finished 179 of 4384
+Finished 180 of 4384
+Finished 181 of 4384
+Finished 182 of 4384
+Finished 183 of 4384
+Finished 184 of 4384
+Finished 185 of 4384
+Finished 186 of 4384
+Finished 187 of 4384
+Finished 188 of 4384
+Finished 189 of 4384
+Finished 190 of 4384
+Finished 191 of 4384
+Finished 192 of 4384
+Finished 193 of 4384
+Finished 194 of 4384
+Finished 195 of 4384
+Finished 196 of 4384
+Finished 197 of 4384
+Finished 198 of 4384
+Finished 199 of 4384
+Finished 200 of 4384
+Finished 201 of 4384
+Finished 202 of 4384
+Finished 203 of 4384
+Finished 204 of 4384
+Finished 205 of 4384
+Finished 206 of 4384
+Finished 207 of 4384
+Finished 208 of 4384
+Finished 209 of 4384
+Finished 210 of 4384
+Finished 211 of 4384
+Finished 212 of 4384
+Finished 213 of 4384
+Finished 214 of 4384
+Finished 215 of 4384
+Finished 216 of 4384
+Finished 217 of 4384
+Finished 218 of 4384
+Finished 219 of 4384
+Finished 220 of 4384
+Finished 221 of 4384
+Finished 222 of 4384
+Finished 223 of 4384
+Finished 224 of 4384
+Finished 225 of 4384
+Finished 226 of 4384
+Finished 227 of 4384
+Finished 228 of 4384
+Finished 229 of 4384
+Finished 230 of 4384
+Finished 231 of 4384
+Finished 232 of 4384
+Finished 233 of 4384
+Finished 234 of 4384
+Finished 235 of 4384
+Finished 236 of 4384
+Finished 237 of 4384
+Finished 238 of 4384
+Finished 239 of 4384
+Finished 240 of 4384
+Finished 241 of 4384
+Finished 242 of 4384
+Finished 243 of 4384
+Finished 244 of 4384
+Finished 245 of 4384
+Finished 246 of 4384
+Finished 247 of 4384
+Finished 248 of 4384
+Finished 249 of 4384
+Finished 250 of 4384
+Finished 251 of 4384
+Finished 252 of 4384
+Finished 253 of 4384
+Finished 254 of 4384
+Finished 255 of 4384
+Finished 256 of 4384
+Finished 257 of 4384
+Finished 258 of 4384
+Finished 259 of 4384
+Finished 260 of 4384
+Finished 261 of 4384
+Finished 262 of 4384
+Finished 263 of 4384
+Finished 264 of 4384
+Finished 265 of 4384
+Finished 266 of 4384
+Finished 267 of 4384
+Finished 268 of 4384
+Finished 269 of 4384
+Finished 270 of 4384
+Finished 271 of 4384
+Finished 272 of 4384
+Finished 273 of 4384
+Finished 274 of 4384
+Finished 275 of 4384
+Finished 276 of 4384
+Finished 277 of 4384
+Finished 278 of 4384
+Finished 279 of 4384
+Finished 280 of 4384
+Finished 281 of 4384
+Finished 282 of 4384
+Finished 283 of 4384
+Finished 284 of 4384
+Finished 285 of 4384
+Finished 286 of 4384
+Finished 287 of 4384
+Finished 288 of 4384
+Finished 289 of 4384
+Finished 290 of 4384
+Finished 291 of 4384
+Finished 292 of 4384
+Finished 293 of 4384
+Finished 294 of 4384
+Finished 295 of 4384
+Finished 296 of 4384
+Finished 297 of 4384
+Finished 298 of 4384
+Finished 299 of 4384
+Finished 300 of 4384
+Finished 301 of 4384
+Finished 302 of 4384
+Finished 303 of 4384
+Finished 304 of 4384
+Finished 305 of 4384
+Finished 306 of 4384
+Finished 307 of 4384
+Finished 308 of 4384
+Finished 309 of 4384
+Finished 310 of 4384
+Finished 311 of 4384
+Finished 312 of 4384
+Finished 313 of 4384
+Finished 314 of 4384
+Finished 315 of 4384
+Finished 316 of 4384
+Finished 317 of 4384
+Finished 318 of 4384
+Finished 319 of 4384
+Finished 320 of 4384
+Finished 321 of 4384
+Finished 322 of 4384
+Finished 323 of 4384
+Finished 324 of 4384
+Finished 325 of 4384
+Finished 326 of 4384
+Finished 327 of 4384
+Finished 328 of 4384
+Finished 329 of 4384
+Finished 330 of 4384
+Finished 331 of 4384
+Finished 332 of 4384
+Finished 333 of 4384
+Finished 334 of 4384
+Finished 335 of 4384
+Finished 336 of 4384
+Finished 337 of 4384
+Finished 338 of 4384
+Finished 339 of 4384
+Finished 340 of 4384
+Finished 341 of 4384
+Finished 342 of 4384
+Finished 343 of 4384
+Finished 344 of 4384
+Finished 345 of 4384
+Finished 346 of 4384
+Finished 347 of 4384
+Finished 348 of 4384
+Finished 349 of 4384
+Finished 350 of 4384
+Finished 351 of 4384
+Finished 352 of 4384
+Finished 353 of 4384
+Finished 354 of 4384
+Finished 355 of 4384
+Finished 356 of 4384
+Finished 357 of 4384
+Finished 358 of 4384
+Finished 359 of 4384
+Finished 360 of 4384
+Finished 361 of 4384
+Finished 362 of 4384
+Finished 363 of 4384
+Finished 364 of 4384
+Finished 365 of 4384
+Finished 366 of 4384
+Finished 367 of 4384
+Finished 368 of 4384
+Finished 369 of 4384
+Finished 370 of 4384
+Finished 371 of 4384
+Finished 372 of 4384
+Finished 373 of 4384
+Finished 374 of 4384
+Finished 375 of 4384
+Finished 376 of 4384
+Finished 377 of 4384
+Finished 378 of 4384
+Finished 379 of 4384
+Finished 380 of 4384
+Finished 381 of 4384
+Finished 382 of 4384
+Finished 383 of 4384
+Finished 384 of 4384
+Finished 385 of 4384
+Finished 386 of 4384
+Finished 387 of 4384
+Finished 388 of 4384
+Finished 389 of 4384
+Finished 390 of 4384
+Finished 391 of 4384
+Finished 392 of 4384
+Finished 393 of 4384
+Finished 394 of 4384
+Finished 395 of 4384
+Finished 396 of 4384
+Finished 397 of 4384
+Finished 398 of 4384
+Finished 399 of 4384
+Finished 400 of 4384
+Finished 401 of 4384
+Finished 402 of 4384
+Finished 403 of 4384
+Finished 404 of 4384
+Finished 405 of 4384
+Finished 406 of 4384
+Finished 407 of 4384
+Finished 408 of 4384
+Finished 409 of 4384
+Finished 410 of 4384
+Finished 411 of 4384
+Finished 412 of 4384
+Finished 413 of 4384
+Finished 414 of 4384
+Finished 415 of 4384
+Finished 416 of 4384
+Finished 417 of 4384
+Finished 418 of 4384
+Finished 419 of 4384
+Finished 420 of 4384
+Finished 421 of 4384
+Finished 422 of 4384
+Finished 423 of 4384
+Finished 424 of 4384
+Finished 425 of 4384
+Finished 426 of 4384
+Finished 427 of 4384
+Finished 428 of 4384
+Finished 429 of 4384
+Finished 430 of 4384
+Finished 431 of 4384
+Finished 432 of 4384
+Finished 433 of 4384
+Finished 434 of 4384
+Finished 435 of 4384
+Finished 436 of 4384
+Finished 437 of 4384
+Finished 438 of 4384
+Finished 439 of 4384
+Finished 440 of 4384
+Finished 441 of 4384
+Finished 442 of 4384
+Finished 443 of 4384
+Finished 444 of 4384
+Finished 445 of 4384
+Finished 446 of 4384
+Finished 447 of 4384
+Finished 448 of 4384
+Finished 449 of 4384
+Finished 450 of 4384
+Finished 451 of 4384
+Finished 452 of 4384
+Finished 453 of 4384
+Finished 454 of 4384
+Finished 455 of 4384
+Finished 456 of 4384
+Finished 457 of 4384
+Finished 458 of 4384
+Finished 459 of 4384
+Finished 460 of 4384
+Finished 461 of 4384
+Finished 462 of 4384
+Finished 463 of 4384
+Finished 464 of 4384
+Finished 465 of 4384
+Finished 466 of 4384
+Finished 467 of 4384
+Finished 468 of 4384
+Finished 469 of 4384
+Finished 470 of 4384
+Finished 471 of 4384
+Finished 472 of 4384
+Finished 473 of 4384
+Finished 474 of 4384
+Finished 475 of 4384
+Finished 476 of 4384
+Finished 477 of 4384
+Finished 478 of 4384
+Finished 479 of 4384
+Finished 480 of 4384
+Finished 481 of 4384
+Finished 482 of 4384
+Finished 483 of 4384
+Finished 484 of 4384
+Finished 485 of 4384
+Finished 486 of 4384
+Finished 487 of 4384
+Finished 488 of 4384
+Finished 489 of 4384
+Finished 490 of 4384
+Finished 491 of 4384
+Finished 492 of 4384
+Finished 493 of 4384
+Finished 494 of 4384
+Finished 495 of 4384
+Finished 496 of 4384
+Finished 497 of 4384
+Finished 498 of 4384
+Finished 499 of 4384
+Finished 500 of 4384
+Finished 501 of 4384
+Finished 502 of 4384
+Finished 503 of 4384
+Finished 504 of 4384
+Finished 505 of 4384
+Finished 506 of 4384
+Finished 507 of 4384
+Finished 508 of 4384
+Finished 509 of 4384
+Finished 510 of 4384
+Finished 511 of 4384
+Finished 512 of 4384
+Finished 513 of 4384
+Finished 514 of 4384
+Finished 515 of 4384
+Finished 516 of 4384
+Finished 517 of 4384
+Finished 518 of 4384
+Finished 519 of 4384
+Finished 520 of 4384
+Finished 521 of 4384
+Finished 522 of 4384
+Finished 523 of 4384
+Finished 524 of 4384
+Finished 525 of 4384
+Finished 526 of 4384
+Finished 527 of 4384
+Finished 528 of 4384
+Finished 529 of 4384
+Finished 530 of 4384
+Finished 531 of 4384
+Finished 532 of 4384
+Finished 533 of 4384
+Finished 534 of 4384
+Finished 535 of 4384
+Finished 536 of 4384
+Finished 537 of 4384
+Finished 538 of 4384
+Finished 539 of 4384
+Finished 540 of 4384
+Finished 541 of 4384
+Finished 542 of 4384
+Finished 543 of 4384
+Finished 544 of 4384
+Finished 545 of 4384
+Finished 546 of 4384
+Finished 547 of 4384
+Finished 548 of 4384
+Finished 549 of 4384
+Finished 550 of 4384
+Finished 551 of 4384
+Finished 552 of 4384
+Finished 553 of 4384
+Finished 554 of 4384
+Finished 555 of 4384
+Finished 556 of 4384
+Finished 557 of 4384
+Finished 558 of 4384
+Finished 559 of 4384
+Finished 560 of 4384
+Finished 561 of 4384
+Finished 562 of 4384
+Finished 563 of 4384
+Finished 564 of 4384
+Finished 565 of 4384
+Finished 566 of 4384
+Finished 567 of 4384
+Finished 568 of 4384
+Finished 569 of 4384
+Finished 570 of 4384
+Finished 571 of 4384
+Finished 572 of 4384
+Finished 573 of 4384
+Finished 574 of 4384
+Finished 575 of 4384
+Finished 576 of 4384
+Finished 577 of 4384
+Finished 578 of 4384
+Finished 579 of 4384
+Finished 580 of 4384
+Finished 581 of 4384
+Finished 582 of 4384
+Finished 583 of 4384
+Finished 584 of 4384
+Finished 585 of 4384
+Finished 586 of 4384
+Finished 587 of 4384
+Finished 588 of 4384
+Finished 589 of 4384
+Finished 590 of 4384
+Finished 591 of 4384
+Finished 592 of 4384
+Finished 593 of 4384
+Finished 594 of 4384
+Finished 595 of 4384
+Finished 596 of 4384
+Finished 597 of 4384
+Finished 598 of 4384
+Finished 599 of 4384
+Finished 600 of 4384
+Finished 601 of 4384
+Finished 602 of 4384
+Finished 603 of 4384
+Finished 604 of 4384
+Finished 605 of 4384
+Finished 606 of 4384
+Finished 607 of 4384
+Finished 608 of 4384
+Finished 609 of 4384
+Finished 610 of 4384
+Finished 611 of 4384
+Finished 612 of 4384
+Finished 613 of 4384
+Finished 614 of 4384
+Finished 615 of 4384
+Finished 616 of 4384
+Finished 617 of 4384
+Finished 618 of 4384
+Finished 619 of 4384
+Finished 620 of 4384
+Finished 621 of 4384
+Finished 622 of 4384
+Finished 623 of 4384
+Finished 624 of 4384
+Finished 625 of 4384
+Finished 626 of 4384
+Finished 627 of 4384
+Finished 628 of 4384
+Finished 629 of 4384
+Finished 630 of 4384
+Finished 631 of 4384
+Finished 632 of 4384
+Finished 633 of 4384
+Finished 634 of 4384
+Finished 635 of 4384
+Finished 636 of 4384
+Finished 637 of 4384
+Finished 638 of 4384
+Finished 639 of 4384
+Finished 640 of 4384
+Finished 641 of 4384
+Finished 642 of 4384
+Finished 643 of 4384
+Finished 644 of 4384
+Finished 645 of 4384
+Finished 646 of 4384
+Finished 647 of 4384
+Finished 648 of 4384
+Finished 649 of 4384
+Finished 650 of 4384
+Finished 651 of 4384
+Finished 652 of 4384
+Finished 653 of 4384
+Finished 654 of 4384
+Finished 655 of 4384
+Finished 656 of 4384
+Finished 657 of 4384
+Finished 658 of 4384
+Finished 659 of 4384
+Finished 660 of 4384
+Finished 661 of 4384
+Finished 662 of 4384
+Finished 663 of 4384
+Finished 664 of 4384
+Finished 665 of 4384
+Finished 666 of 4384
+Finished 667 of 4384
+Finished 668 of 4384
+Finished 669 of 4384
+Finished 670 of 4384
+Finished 671 of 4384
+Finished 672 of 4384
+Finished 673 of 4384
+Finished 674 of 4384
+Finished 675 of 4384
+Finished 676 of 4384
+Finished 677 of 4384
+Finished 678 of 4384
+Finished 679 of 4384
+Finished 680 of 4384
+Finished 681 of 4384
+Finished 682 of 4384
+Finished 683 of 4384
+Finished 684 of 4384
+Finished 685 of 4384
+Finished 686 of 4384
+Finished 687 of 4384
+Finished 688 of 4384
+Finished 689 of 4384
+Finished 690 of 4384
+Finished 691 of 4384
+Finished 692 of 4384
+Finished 693 of 4384
+Finished 694 of 4384
+Finished 695 of 4384
+Finished 696 of 4384
+Finished 697 of 4384
+Finished 698 of 4384
+Finished 699 of 4384
+Finished 700 of 4384
+Finished 701 of 4384
+Finished 702 of 4384
+Finished 703 of 4384
+Finished 704 of 4384
+Finished 705 of 4384
+Finished 706 of 4384
+Finished 707 of 4384
+Finished 708 of 4384
+Finished 709 of 4384
+Finished 710 of 4384
+Finished 711 of 4384
+Finished 712 of 4384
+Finished 713 of 4384
+Finished 714 of 4384
+Finished 715 of 4384
+Finished 716 of 4384
+Finished 717 of 4384
+Finished 718 of 4384
+Finished 719 of 4384
+Finished 720 of 4384
+Finished 721 of 4384
+Finished 722 of 4384
+Finished 723 of 4384
+Finished 724 of 4384
+Finished 725 of 4384
+Finished 726 of 4384
+Finished 727 of 4384
+Finished 728 of 4384
+Finished 729 of 4384
+Finished 730 of 4384
+Finished 731 of 4384
+Finished 732 of 4384
+Finished 733 of 4384
+Finished 734 of 4384
+Finished 735 of 4384
+Finished 736 of 4384
+Finished 737 of 4384
+Finished 738 of 4384
+Finished 739 of 4384
+Finished 740 of 4384
+Finished 741 of 4384
+Finished 742 of 4384
+Finished 743 of 4384
+Finished 744 of 4384
+Finished 745 of 4384
+Finished 746 of 4384
+Finished 747 of 4384
+Finished 748 of 4384
+Finished 749 of 4384
+Finished 750 of 4384
+Finished 751 of 4384
+Finished 752 of 4384
+Finished 753 of 4384
+Finished 754 of 4384
+Finished 755 of 4384
+Finished 756 of 4384
+Finished 757 of 4384
+Finished 758 of 4384
+Finished 759 of 4384
+Finished 760 of 4384
+Finished 761 of 4384
+Finished 762 of 4384
+Finished 763 of 4384
+Finished 764 of 4384
+Finished 765 of 4384
+Finished 766 of 4384
+Finished 767 of 4384
+Finished 768 of 4384
+Finished 769 of 4384
+Finished 770 of 4384
+Finished 771 of 4384
+Finished 772 of 4384
+Finished 773 of 4384
+Finished 774 of 4384
+Finished 775 of 4384
+Finished 776 of 4384
+Finished 777 of 4384
+Finished 778 of 4384
+Finished 779 of 4384
+Finished 780 of 4384
+Finished 781 of 4384
+Finished 782 of 4384
+Finished 783 of 4384
+Finished 784 of 4384
+Finished 785 of 4384
+Finished 786 of 4384
+Finished 787 of 4384
+Finished 788 of 4384
+Finished 789 of 4384
+Finished 790 of 4384
+Finished 791 of 4384
+Finished 792 of 4384
+Finished 793 of 4384
+Finished 794 of 4384
+Finished 795 of 4384
+Finished 796 of 4384
+Finished 797 of 4384
+Finished 798 of 4384
+Finished 799 of 4384
+Finished 800 of 4384
+Finished 801 of 4384
+Finished 802 of 4384
+Finished 803 of 4384
+Finished 804 of 4384
+Finished 805 of 4384
+Finished 806 of 4384
+Finished 807 of 4384
+Finished 808 of 4384
+Finished 809 of 4384
+Finished 810 of 4384
+Finished 811 of 4384
+Finished 812 of 4384
+Finished 813 of 4384
+Finished 814 of 4384
+Finished 815 of 4384
+Finished 816 of 4384
+Finished 817 of 4384
+Finished 818 of 4384
+Finished 819 of 4384
+Finished 820 of 4384
+Finished 821 of 4384
+Finished 822 of 4384
+Finished 823 of 4384
+Finished 824 of 4384
+Finished 825 of 4384
+Finished 826 of 4384
+Finished 827 of 4384
+Finished 828 of 4384
+Finished 829 of 4384
+Finished 830 of 4384
+Finished 831 of 4384
+Finished 832 of 4384
+Finished 833 of 4384
+Finished 834 of 4384
+Finished 835 of 4384
+Finished 836 of 4384
+Finished 837 of 4384
+Finished 838 of 4384
+Finished 839 of 4384
+Finished 840 of 4384
+Finished 841 of 4384
+Finished 842 of 4384
+Finished 843 of 4384
+Finished 844 of 4384
+Finished 845 of 4384
+Finished 846 of 4384
+Finished 847 of 4384
+Finished 848 of 4384
+Finished 849 of 4384
+Finished 850 of 4384
+Finished 851 of 4384
+Finished 852 of 4384
+Finished 853 of 4384
+Finished 854 of 4384
+Finished 855 of 4384
+Finished 856 of 4384
+Finished 857 of 4384
+Finished 858 of 4384
+Finished 859 of 4384
+Finished 860 of 4384
+Finished 861 of 4384
+Finished 862 of 4384
+Finished 863 of 4384
+Finished 864 of 4384
+Finished 865 of 4384
+Finished 866 of 4384
+Finished 867 of 4384
+Finished 868 of 4384
+Finished 869 of 4384
+Finished 870 of 4384
+Finished 871 of 4384
+Finished 872 of 4384
+Finished 873 of 4384
+Finished 874 of 4384
+Finished 875 of 4384
+Finished 876 of 4384
+Finished 877 of 4384
+Finished 878 of 4384
+Finished 879 of 4384
+Finished 880 of 4384
+Finished 881 of 4384
+Finished 882 of 4384
+Finished 883 of 4384
+Finished 884 of 4384
+Finished 885 of 4384
+Finished 886 of 4384
+Finished 887 of 4384
+Finished 888 of 4384
+Finished 889 of 4384
+Finished 890 of 4384
+Finished 891 of 4384
+Finished 892 of 4384
+Finished 893 of 4384
+Finished 894 of 4384
+Finished 895 of 4384
+Finished 896 of 4384
+Finished 897 of 4384
+Finished 898 of 4384
+Finished 899 of 4384
+Finished 900 of 4384
+Finished 901 of 4384
+Finished 902 of 4384
+Finished 903 of 4384
+Finished 904 of 4384
+Finished 905 of 4384
+Finished 906 of 4384
+Finished 907 of 4384
+Finished 908 of 4384
+Finished 909 of 4384
+Finished 910 of 4384
+Finished 911 of 4384
+Finished 912 of 4384
+Finished 913 of 4384
+Finished 914 of 4384
+Finished 915 of 4384
+Finished 916 of 4384
+Finished 917 of 4384
+Finished 918 of 4384
+Finished 919 of 4384
+Finished 920 of 4384
+Finished 921 of 4384
+Finished 922 of 4384
+Finished 923 of 4384
+Finished 924 of 4384
+Finished 925 of 4384
+Finished 926 of 4384
+Finished 927 of 4384
+Finished 928 of 4384
+Finished 929 of 4384
+Finished 930 of 4384
+Finished 931 of 4384
+Finished 932 of 4384
+Finished 933 of 4384
+Finished 934 of 4384
+Finished 935 of 4384
+Finished 936 of 4384
+Finished 937 of 4384
+Finished 938 of 4384
+Finished 939 of 4384
+Finished 940 of 4384
+Finished 941 of 4384
+Finished 942 of 4384
+Finished 943 of 4384
+Finished 944 of 4384
+Finished 945 of 4384
+Finished 946 of 4384
+Finished 947 of 4384
+Finished 948 of 4384
+Finished 949 of 4384
+Finished 950 of 4384
+Finished 951 of 4384
+Finished 952 of 4384
+Finished 953 of 4384
+Finished 954 of 4384
+Finished 955 of 4384
+Finished 956 of 4384
+Finished 957 of 4384
+Finished 958 of 4384
+Finished 959 of 4384
+Finished 960 of 4384
+Finished 961 of 4384
+Finished 962 of 4384
+Finished 963 of 4384
+Finished 964 of 4384
+Finished 965 of 4384
+Finished 966 of 4384
+Finished 967 of 4384
+Finished 968 of 4384
+Finished 969 of 4384
+Finished 970 of 4384
+Finished 971 of 4384
+Finished 972 of 4384
+Finished 973 of 4384
+Finished 974 of 4384
+Finished 975 of 4384
+Finished 976 of 4384
+Finished 977 of 4384
+Finished 978 of 4384
+Finished 979 of 4384
+Finished 980 of 4384
+Finished 981 of 4384
+Finished 982 of 4384
+Finished 983 of 4384
+Finished 984 of 4384
+Finished 985 of 4384
+Finished 986 of 4384
+Finished 987 of 4384
+Finished 988 of 4384
+Finished 989 of 4384
+Finished 990 of 4384
+Finished 991 of 4384
+Finished 992 of 4384
+Finished 993 of 4384
+Finished 994 of 4384
+Finished 995 of 4384
+Finished 996 of 4384
+Finished 997 of 4384
+Finished 998 of 4384
+Finished 999 of 4384
+Finished 1000 of 4384
+Finished 1001 of 4384
+Finished 1002 of 4384
+Finished 1003 of 4384
+Finished 1004 of 4384
+Finished 1005 of 4384
+Finished 1006 of 4384
+Finished 1007 of 4384
+Finished 1008 of 4384
+Finished 1009 of 4384
+Finished 1010 of 4384
+Finished 1011 of 4384
+Finished 1012 of 4384
+Finished 1013 of 4384
+Finished 1014 of 4384
+Finished 1015 of 4384
+Finished 1016 of 4384
+Finished 1017 of 4384
+Finished 1018 of 4384
+Finished 1019 of 4384
+Finished 1020 of 4384
+Finished 1021 of 4384
+Finished 1022 of 4384
+Finished 1023 of 4384
+Finished 1024 of 4384
+Finished 1025 of 4384
+Finished 1026 of 4384
+Finished 1027 of 4384
+Finished 1028 of 4384
+Finished 1029 of 4384
+Finished 1030 of 4384
+Finished 1031 of 4384
+Finished 1032 of 4384
+Finished 1033 of 4384
+Finished 1034 of 4384
+Finished 1035 of 4384
+Finished 1036 of 4384
+Finished 1037 of 4384
+Finished 1038 of 4384
+Finished 1039 of 4384
+Finished 1040 of 4384
+Finished 1041 of 4384
+Finished 1042 of 4384
+Finished 1043 of 4384
+Finished 1044 of 4384
+Finished 1045 of 4384
+Finished 1046 of 4384
+Finished 1047 of 4384
+Finished 1048 of 4384
+Finished 1049 of 4384
+Finished 1050 of 4384
+Finished 1051 of 4384
+Finished 1052 of 4384
+Finished 1053 of 4384
+Finished 1054 of 4384
+Finished 1055 of 4384
+Finished 1056 of 4384
+Finished 1057 of 4384
+Finished 1058 of 4384
+Finished 1059 of 4384
+Finished 1060 of 4384
+Finished 1061 of 4384
+Finished 1062 of 4384
+Finished 1063 of 4384
+Finished 1064 of 4384
+Finished 1065 of 4384
+Finished 1066 of 4384
+Finished 1067 of 4384
+Finished 1068 of 4384
+Finished 1069 of 4384
+Finished 1070 of 4384
+Finished 1071 of 4384
+Finished 1072 of 4384
+Finished 1073 of 4384
+Finished 1074 of 4384
+Finished 1075 of 4384
+Finished 1076 of 4384
+Finished 1077 of 4384
+Finished 1078 of 4384
+Finished 1079 of 4384
+Finished 1080 of 4384
+Finished 1081 of 4384
+Finished 1082 of 4384
+Finished 1083 of 4384
+Finished 1084 of 4384
+Finished 1085 of 4384
+Finished 1086 of 4384
+Finished 1087 of 4384
+Finished 1088 of 4384
+Finished 1089 of 4384
+Finished 1090 of 4384
+Finished 1091 of 4384
+Finished 1092 of 4384
+Finished 1093 of 4384
+Finished 1094 of 4384
+Finished 1095 of 4384
+Finished 1096 of 4384
+Finished 1097 of 4384
+Finished 1098 of 4384
+Finished 1099 of 4384
+Finished 1100 of 4384
+Finished 1101 of 4384
+Finished 1102 of 4384
+Finished 1103 of 4384
+Finished 1104 of 4384
+Finished 1105 of 4384
+Finished 1106 of 4384
+Finished 1107 of 4384
+Finished 1108 of 4384
+Finished 1109 of 4384
+Finished 1110 of 4384
+Finished 1111 of 4384
+Finished 1112 of 4384
+Finished 1113 of 4384
+Finished 1114 of 4384
+Finished 1115 of 4384
+Finished 1116 of 4384
+Finished 1117 of 4384
+Finished 1118 of 4384
+Finished 1119 of 4384
+Finished 1120 of 4384
+Finished 1121 of 4384
+Finished 1122 of 4384
+Finished 1123 of 4384
+Finished 1124 of 4384
+Finished 1125 of 4384
+Finished 1126 of 4384
+Finished 1127 of 4384
+Finished 1128 of 4384
+Finished 1129 of 4384
+Finished 1130 of 4384
+Finished 1131 of 4384
+Finished 1132 of 4384
+Finished 1133 of 4384
+Finished 1134 of 4384
+Finished 1135 of 4384
+Finished 1136 of 4384
+Finished 1137 of 4384
+Finished 1138 of 4384
+Finished 1139 of 4384
+Finished 1140 of 4384
+Finished 1141 of 4384
+Finished 1142 of 4384
+Finished 1143 of 4384
+Finished 1144 of 4384
+Finished 1145 of 4384
+Finished 1146 of 4384
+Finished 1147 of 4384
+Finished 1148 of 4384
+Finished 1149 of 4384
+Finished 1150 of 4384
+Finished 1151 of 4384
+Finished 1152 of 4384
+Finished 1153 of 4384
+Finished 1154 of 4384
+Finished 1155 of 4384
+Finished 1156 of 4384
+Finished 1157 of 4384
+Finished 1158 of 4384
+Finished 1159 of 4384
+Finished 1160 of 4384
+Finished 1161 of 4384
+Finished 1162 of 4384
+Finished 1163 of 4384
+Finished 1164 of 4384
+Finished 1165 of 4384
+Finished 1166 of 4384
+Finished 1167 of 4384
+Finished 1168 of 4384
+Finished 1169 of 4384
+Finished 1170 of 4384
+Finished 1171 of 4384
+Finished 1172 of 4384
+Finished 1173 of 4384
+Finished 1174 of 4384
+Finished 1175 of 4384
+Finished 1176 of 4384
+Finished 1177 of 4384
+Finished 1178 of 4384
+Finished 1179 of 4384
+Finished 1180 of 4384
+Finished 1181 of 4384
+Finished 1182 of 4384
+Finished 1183 of 4384
+Finished 1184 of 4384
+Finished 1185 of 4384
+Finished 1186 of 4384
+Finished 1187 of 4384
+Finished 1188 of 4384
+Finished 1189 of 4384
+Finished 1190 of 4384
+Finished 1191 of 4384
+Finished 1192 of 4384
+Finished 1193 of 4384
+Finished 1194 of 4384
+Finished 1195 of 4384
+Finished 1196 of 4384
+Finished 1197 of 4384
+Finished 1198 of 4384
+Finished 1199 of 4384
+Finished 1200 of 4384
+Finished 1201 of 4384
+Finished 1202 of 4384
+Finished 1203 of 4384
+Finished 1204 of 4384
+Finished 1205 of 4384
+Finished 1206 of 4384
+Finished 1207 of 4384
+Finished 1208 of 4384
+Finished 1209 of 4384
+Finished 1210 of 4384
+Finished 1211 of 4384
+Finished 1212 of 4384
+Finished 1213 of 4384
+Finished 1214 of 4384
+Finished 1215 of 4384
+Finished 1216 of 4384
+Finished 1217 of 4384
+Finished 1218 of 4384
+Finished 1219 of 4384
+Finished 1220 of 4384
+Finished 1221 of 4384
+Finished 1222 of 4384
+Finished 1223 of 4384
+Finished 1224 of 4384
+Finished 1225 of 4384
+Finished 1226 of 4384
+Finished 1227 of 4384
+Finished 1228 of 4384
+Finished 1229 of 4384
+Finished 1230 of 4384
+Finished 1231 of 4384
+Finished 1232 of 4384
+Finished 1233 of 4384
+Finished 1234 of 4384
+Finished 1235 of 4384
+Finished 1236 of 4384
+Finished 1237 of 4384
+Finished 1238 of 4384
+Finished 1239 of 4384
+Finished 1240 of 4384
+Finished 1241 of 4384
+Finished 1242 of 4384
+Finished 1243 of 4384
+Finished 1244 of 4384
+Finished 1245 of 4384
+Finished 1246 of 4384
+Finished 1247 of 4384
+Finished 1248 of 4384
+Finished 1249 of 4384
+Finished 1250 of 4384
+Finished 1251 of 4384
+Finished 1252 of 4384
+Finished 1253 of 4384
+Finished 1254 of 4384
+Finished 1255 of 4384
+Finished 1256 of 4384
+Finished 1257 of 4384
+Finished 1258 of 4384
+Finished 1259 of 4384
+Finished 1260 of 4384
+Finished 1261 of 4384
+Finished 1262 of 4384
+Finished 1263 of 4384
+Finished 1264 of 4384
+Finished 1265 of 4384
+Finished 1266 of 4384
+Finished 1267 of 4384
+Finished 1268 of 4384
+Finished 1269 of 4384
+Finished 1270 of 4384
+Finished 1271 of 4384
+Finished 1272 of 4384
+Finished 1273 of 4384
+Finished 1274 of 4384
+Finished 1275 of 4384
+Finished 1276 of 4384
+Finished 1277 of 4384
+Finished 1278 of 4384
+Finished 1279 of 4384
+Finished 1280 of 4384
+Finished 1281 of 4384
+Finished 1282 of 4384
+Finished 1283 of 4384
+Finished 1284 of 4384
+Finished 1285 of 4384
+Finished 1286 of 4384
+Finished 1287 of 4384
+Finished 1288 of 4384
+Finished 1289 of 4384
+Finished 1290 of 4384
+Finished 1291 of 4384
+Finished 1292 of 4384
+Finished 1293 of 4384
+Finished 1294 of 4384
+Finished 1295 of 4384
+Finished 1296 of 4384
+Finished 1297 of 4384
+Finished 1298 of 4384
+Finished 1299 of 4384
+Finished 1300 of 4384
+Finished 1301 of 4384
+Finished 1302 of 4384
+Finished 1303 of 4384
+Finished 1304 of 4384
+Finished 1305 of 4384
+Finished 1306 of 4384
+Finished 1307 of 4384
+Finished 1308 of 4384
+Finished 1309 of 4384
+Finished 1310 of 4384
+Finished 1311 of 4384
+Finished 1312 of 4384
+Finished 1313 of 4384
+Finished 1314 of 4384
+Finished 1315 of 4384
+Finished 1316 of 4384
+Finished 1317 of 4384
+Finished 1318 of 4384
+Finished 1319 of 4384
+Finished 1320 of 4384
+Finished 1321 of 4384
+Finished 1322 of 4384
+Finished 1323 of 4384
+Finished 1324 of 4384
+Finished 1325 of 4384
+Finished 1326 of 4384
+Finished 1327 of 4384
+Finished 1328 of 4384
+Finished 1329 of 4384
+Finished 1330 of 4384
+Finished 1331 of 4384
+Finished 1332 of 4384
+Finished 1333 of 4384
+Finished 1334 of 4384
+Finished 1335 of 4384
+Finished 1336 of 4384
+Finished 1337 of 4384
+Finished 1338 of 4384
+Finished 1339 of 4384
+Finished 1340 of 4384
+Finished 1341 of 4384
+Finished 1342 of 4384
+Finished 1343 of 4384
+Finished 1344 of 4384
+Finished 1345 of 4384
+Finished 1346 of 4384
+Finished 1347 of 4384
+Finished 1348 of 4384
+Finished 1349 of 4384
+Finished 1350 of 4384
+Finished 1351 of 4384
+Finished 1352 of 4384
+Finished 1353 of 4384
+Finished 1354 of 4384
+Finished 1355 of 4384
+Finished 1356 of 4384
+Finished 1357 of 4384
+Finished 1358 of 4384
+Finished 1359 of 4384
+Finished 1360 of 4384
+Finished 1361 of 4384
+Finished 1362 of 4384
+Finished 1363 of 4384
+Finished 1364 of 4384
+Finished 1365 of 4384
+Finished 1366 of 4384
+Finished 1367 of 4384
+Finished 1368 of 4384
+Finished 1369 of 4384
+Finished 1370 of 4384
+Finished 1371 of 4384
+Finished 1372 of 4384
+Finished 1373 of 4384
+Finished 1374 of 4384
+Finished 1375 of 4384
+Finished 1376 of 4384
+Finished 1377 of 4384
+Finished 1378 of 4384
+Finished 1379 of 4384
+Finished 1380 of 4384
+Finished 1381 of 4384
+Finished 1382 of 4384
+Finished 1383 of 4384
+Finished 1384 of 4384
+Finished 1385 of 4384
+Finished 1386 of 4384
+Finished 1387 of 4384
+Finished 1388 of 4384
+Finished 1389 of 4384
+Finished 1390 of 4384
+Finished 1391 of 4384
+Finished 1392 of 4384
+Finished 1393 of 4384
+Finished 1394 of 4384
+Finished 1395 of 4384
+Finished 1396 of 4384
+Finished 1397 of 4384
+Finished 1398 of 4384
+Finished 1399 of 4384
+Finished 1400 of 4384
+Finished 1401 of 4384
+Finished 1402 of 4384
+Finished 1403 of 4384
+Finished 1404 of 4384
+Finished 1405 of 4384
+Finished 1406 of 4384
+Finished 1407 of 4384
+Finished 1408 of 4384
+Finished 1409 of 4384
+Finished 1410 of 4384
+Finished 1411 of 4384
+Finished 1412 of 4384
+Finished 1413 of 4384
+Finished 1414 of 4384
+Finished 1415 of 4384
+Finished 1416 of 4384
+Finished 1417 of 4384
+Finished 1418 of 4384
+Finished 1419 of 4384
+Finished 1420 of 4384
+Finished 1421 of 4384
+Finished 1422 of 4384
+Finished 1423 of 4384
+Finished 1424 of 4384
+Finished 1425 of 4384
+Finished 1426 of 4384
+Finished 1427 of 4384
+Finished 1428 of 4384
+Finished 1429 of 4384
+Finished 1430 of 4384
+Finished 1431 of 4384
+Finished 1432 of 4384
+Finished 1433 of 4384
+Finished 1434 of 4384
+Finished 1435 of 4384
+Finished 1436 of 4384
+Finished 1437 of 4384
+Finished 1438 of 4384
+Finished 1439 of 4384
+Finished 1440 of 4384
+Finished 1441 of 4384
+Finished 1442 of 4384
+Finished 1443 of 4384
+Finished 1444 of 4384
+Finished 1445 of 4384
+Finished 1446 of 4384
+Finished 1447 of 4384
+Finished 1448 of 4384
+Finished 1449 of 4384
+Finished 1450 of 4384
+Finished 1451 of 4384
+Finished 1452 of 4384
+Finished 1453 of 4384
+Finished 1454 of 4384
+Finished 1455 of 4384
+Finished 1456 of 4384
+Finished 1457 of 4384
+Finished 1458 of 4384
+Finished 1459 of 4384
+Finished 1460 of 4384
+Finished 1461 of 4384
+Finished 1462 of 4384
+Finished 1463 of 4384
+Finished 1464 of 4384
+Finished 1465 of 4384
+Finished 1466 of 4384
+Finished 1467 of 4384
+Finished 1468 of 4384
+Finished 1469 of 4384
+Finished 1470 of 4384
+Finished 1471 of 4384
+Finished 1472 of 4384
+Finished 1473 of 4384
+Finished 1474 of 4384
+Finished 1475 of 4384
+Finished 1476 of 4384
+Finished 1477 of 4384
+Finished 1478 of 4384
+Finished 1479 of 4384
+Finished 1480 of 4384
+Finished 1481 of 4384
+Finished 1482 of 4384
+Finished 1483 of 4384
+Finished 1484 of 4384
+Finished 1485 of 4384
+Finished 1486 of 4384
+Finished 1487 of 4384
+Finished 1488 of 4384
+Finished 1489 of 4384
+Finished 1490 of 4384
+Finished 1491 of 4384
+Finished 1492 of 4384
+Finished 1493 of 4384
+Finished 1494 of 4384
+Finished 1495 of 4384
+Finished 1496 of 4384
+Finished 1497 of 4384
+Finished 1498 of 4384
+Finished 1499 of 4384
+Finished 1500 of 4384
+Finished 1501 of 4384
+Finished 1502 of 4384
+Finished 1503 of 4384
+Finished 1504 of 4384
+Finished 1505 of 4384
+Finished 1506 of 4384
+Finished 1507 of 4384
+Finished 1508 of 4384
+Finished 1509 of 4384
+Finished 1510 of 4384
+Finished 1511 of 4384
+Finished 1512 of 4384
+Finished 1513 of 4384
+Finished 1514 of 4384
+Finished 1515 of 4384
+Finished 1516 of 4384
+Finished 1517 of 4384
+Finished 1518 of 4384
+Finished 1519 of 4384
+Finished 1520 of 4384
+Finished 1521 of 4384
+Finished 1522 of 4384
+Finished 1523 of 4384
+Finished 1524 of 4384
+Finished 1525 of 4384
+Finished 1526 of 4384
+Finished 1527 of 4384
+Finished 1528 of 4384
+Finished 1529 of 4384
+Finished 1530 of 4384
+Finished 1531 of 4384
+Finished 1532 of 4384
+Finished 1533 of 4384
+Finished 1534 of 4384
+Finished 1535 of 4384
+Finished 1536 of 4384
+Finished 1537 of 4384
+Finished 1538 of 4384
+Finished 1539 of 4384
+Finished 1540 of 4384
+Finished 1541 of 4384
+Finished 1542 of 4384
+Finished 1543 of 4384
+Finished 1544 of 4384
+Finished 1545 of 4384
+Finished 1546 of 4384
+Finished 1547 of 4384
+Finished 1548 of 4384
+Finished 1549 of 4384
+Finished 1550 of 4384
+Finished 1551 of 4384
+Finished 1552 of 4384
+Finished 1553 of 4384
+Finished 1554 of 4384
+Finished 1555 of 4384
+Finished 1556 of 4384
+Finished 1557 of 4384
+Finished 1558 of 4384
+Finished 1559 of 4384
+Finished 1560 of 4384
+Finished 1561 of 4384
+Finished 1562 of 4384
+Finished 1563 of 4384
+Finished 1564 of 4384
+Finished 1565 of 4384
+Finished 1566 of 4384
+Finished 1567 of 4384
+Finished 1568 of 4384
+Finished 1569 of 4384
+Finished 1570 of 4384
+Finished 1571 of 4384
+Finished 1572 of 4384
+Finished 1573 of 4384
+Finished 1574 of 4384
+Finished 1575 of 4384
+Finished 1576 of 4384
+Finished 1577 of 4384
+Finished 1578 of 4384
+Finished 1579 of 4384
+Finished 1580 of 4384
+Finished 1581 of 4384
+Finished 1582 of 4384
+Finished 1583 of 4384
+Finished 1584 of 4384
+Finished 1585 of 4384
+Finished 1586 of 4384
+Finished 1587 of 4384
+Finished 1588 of 4384
+Finished 1589 of 4384
+Finished 1590 of 4384
+Finished 1591 of 4384
+Finished 1592 of 4384
+Finished 1593 of 4384
+Finished 1594 of 4384
+Finished 1595 of 4384
+Finished 1596 of 4384
+Finished 1597 of 4384
+Finished 1598 of 4384
+Finished 1599 of 4384
+Finished 1600 of 4384
+Finished 1601 of 4384
+Finished 1602 of 4384
+Finished 1603 of 4384
+Finished 1604 of 4384
+Finished 1605 of 4384
+Finished 1606 of 4384
+Finished 1607 of 4384
+Finished 1608 of 4384
+Finished 1609 of 4384
+Finished 1610 of 4384
+Finished 1611 of 4384
+Finished 1612 of 4384
+Finished 1613 of 4384
+Finished 1614 of 4384
+Finished 1615 of 4384
+Finished 1616 of 4384
+Finished 1617 of 4384
+Finished 1618 of 4384
+Finished 1619 of 4384
+Finished 1620 of 4384
+Finished 1621 of 4384
+Finished 1622 of 4384
+Finished 1623 of 4384
+Finished 1624 of 4384
+Finished 1625 of 4384
+Finished 1626 of 4384
+Finished 1627 of 4384
+Finished 1628 of 4384
+Finished 1629 of 4384
+Finished 1630 of 4384
+Finished 1631 of 4384
+Finished 1632 of 4384
+Finished 1633 of 4384
+Finished 1634 of 4384
+Finished 1635 of 4384
+Finished 1636 of 4384
+Finished 1637 of 4384
+Finished 1638 of 4384
+Finished 1639 of 4384
+Finished 1640 of 4384
+Finished 1641 of 4384
+Finished 1642 of 4384
+Finished 1643 of 4384
+Finished 1644 of 4384
+Finished 1645 of 4384
+Finished 1646 of 4384
+Finished 1647 of 4384
+Finished 1648 of 4384
+Finished 1649 of 4384
+Finished 1650 of 4384
+Finished 1651 of 4384
+Finished 1652 of 4384
+Finished 1653 of 4384
+Finished 1654 of 4384
+Finished 1655 of 4384
+Finished 1656 of 4384
+Finished 1657 of 4384
+Finished 1658 of 4384
+Finished 1659 of 4384
+Finished 1660 of 4384
+Finished 1661 of 4384
+Finished 1662 of 4384
+Finished 1663 of 4384
+Finished 1664 of 4384
+Finished 1665 of 4384
+Finished 1666 of 4384
+Finished 1667 of 4384
+Finished 1668 of 4384
+Finished 1669 of 4384
+Finished 1670 of 4384
+Finished 1671 of 4384
+Finished 1672 of 4384
+Finished 1673 of 4384
+Finished 1674 of 4384
+Finished 1675 of 4384
+Finished 1676 of 4384
+Finished 1677 of 4384
+Finished 1678 of 4384
+Finished 1679 of 4384
+Finished 1680 of 4384
+Finished 1681 of 4384
+Finished 1682 of 4384
+Finished 1683 of 4384
+Finished 1684 of 4384
+Finished 1685 of 4384
+Finished 1686 of 4384
+Finished 1687 of 4384
+Finished 1688 of 4384
+Finished 1689 of 4384
+Finished 1690 of 4384
+Finished 1691 of 4384
+Finished 1692 of 4384
+Finished 1693 of 4384
+Finished 1694 of 4384
+Finished 1695 of 4384
+Finished 1696 of 4384
+Finished 1697 of 4384
+Finished 1698 of 4384
+Finished 1699 of 4384
+Finished 1700 of 4384
+Finished 1701 of 4384
+Finished 1702 of 4384
+Finished 1703 of 4384
+Finished 1704 of 4384
+Finished 1705 of 4384
+Finished 1706 of 4384
+Finished 1707 of 4384
+Finished 1708 of 4384
+Finished 1709 of 4384
+Finished 1710 of 4384
+Finished 1711 of 4384
+Finished 1712 of 4384
+Finished 1713 of 4384
+Finished 1714 of 4384
+Finished 1715 of 4384
+Finished 1716 of 4384
+Finished 1717 of 4384
+Finished 1718 of 4384
+Finished 1719 of 4384
+Finished 1720 of 4384
+Finished 1721 of 4384
+Finished 1722 of 4384
+Finished 1723 of 4384
+Finished 1724 of 4384
+Finished 1725 of 4384
+Finished 1726 of 4384
+Finished 1727 of 4384
+Finished 1728 of 4384
+Finished 1729 of 4384
+Finished 1730 of 4384
+Finished 1731 of 4384
+Finished 1732 of 4384
+Finished 1733 of 4384
+Finished 1734 of 4384
+Finished 1735 of 4384
+Finished 1736 of 4384
+Finished 1737 of 4384
+Finished 1738 of 4384
+Finished 1739 of 4384
+Finished 1740 of 4384
+Finished 1741 of 4384
+Finished 1742 of 4384
+Finished 1743 of 4384
+Finished 1744 of 4384
+Finished 1745 of 4384
+Finished 1746 of 4384
+Finished 1747 of 4384
+Finished 1748 of 4384
+Finished 1749 of 4384
+Finished 1750 of 4384
+Finished 1751 of 4384
+Finished 1752 of 4384
+Finished 1753 of 4384
+Finished 1754 of 4384
+Finished 1755 of 4384
+Finished 1756 of 4384
+Finished 1757 of 4384
+Finished 1758 of 4384
+Finished 1759 of 4384
+Finished 1760 of 4384
+Finished 1761 of 4384
+Finished 1762 of 4384
+Finished 1763 of 4384
+Finished 1764 of 4384
+Finished 1765 of 4384
+Finished 1766 of 4384
+Finished 1767 of 4384
+Finished 1768 of 4384
+Finished 1769 of 4384
+Finished 1770 of 4384
+Finished 1771 of 4384
+Finished 1772 of 4384
+Finished 1773 of 4384
+Finished 1774 of 4384
+Finished 1775 of 4384
+Finished 1776 of 4384
+Finished 1777 of 4384
+Finished 1778 of 4384
+Finished 1779 of 4384
+Finished 1780 of 4384
+Finished 1781 of 4384
+Finished 1782 of 4384
+Finished 1783 of 4384
+Finished 1784 of 4384
+Finished 1785 of 4384
+Finished 1786 of 4384
+Finished 1787 of 4384
+Finished 1788 of 4384
+Finished 1789 of 4384
+Finished 1790 of 4384
+Finished 1791 of 4384
+Finished 1792 of 4384
+Finished 1793 of 4384
+Finished 1794 of 4384
+Finished 1795 of 4384
+Finished 1796 of 4384
+Finished 1797 of 4384
+Finished 1798 of 4384
+Finished 1799 of 4384
+Finished 1800 of 4384
+Finished 1801 of 4384
+Finished 1802 of 4384
+Finished 1803 of 4384
+Finished 1804 of 4384
+Finished 1805 of 4384
+Finished 1806 of 4384
+Finished 1807 of 4384
+Finished 1808 of 4384
+Finished 1809 of 4384
+Finished 1810 of 4384
+Finished 1811 of 4384
+Finished 1812 of 4384
+Finished 1813 of 4384
+Finished 1814 of 4384
+Finished 1815 of 4384
+Finished 1816 of 4384
+Finished 1817 of 4384
+Finished 1818 of 4384
+Finished 1819 of 4384
+Finished 1820 of 4384
+Finished 1821 of 4384
+Finished 1822 of 4384
+Finished 1823 of 4384
+Finished 1824 of 4384
+Finished 1825 of 4384
+Finished 1826 of 4384
+Finished 1827 of 4384
+Finished 1828 of 4384
+Finished 1829 of 4384
+Finished 1830 of 4384
+Finished 1831 of 4384
+Finished 1832 of 4384
+Finished 1833 of 4384
+Finished 1834 of 4384
+Finished 1835 of 4384
+Finished 1836 of 4384
+Finished 1837 of 4384
+Finished 1838 of 4384
+Finished 1839 of 4384
+Finished 1840 of 4384
+Finished 1841 of 4384
+Finished 1842 of 4384
+Finished 1843 of 4384
+Finished 1844 of 4384
+Finished 1845 of 4384
+Finished 1846 of 4384
+Finished 1847 of 4384
+Finished 1848 of 4384
+Finished 1849 of 4384
+Finished 1850 of 4384
+Finished 1851 of 4384
+Finished 1852 of 4384
+Finished 1853 of 4384
+Finished 1854 of 4384
+Finished 1855 of 4384
+Finished 1856 of 4384
+Finished 1857 of 4384
+Finished 1858 of 4384
+Finished 1859 of 4384
+Finished 1860 of 4384
+Finished 1861 of 4384
+Finished 1862 of 4384
+Finished 1863 of 4384
+Finished 1864 of 4384
+Finished 1865 of 4384
+Finished 1866 of 4384
+Finished 1867 of 4384
+Finished 1868 of 4384
+Finished 1869 of 4384
+Finished 1870 of 4384
+Finished 1871 of 4384
+Finished 1872 of 4384
+Finished 1873 of 4384
+Finished 1874 of 4384
+Finished 1875 of 4384
+Finished 1876 of 4384
+Finished 1877 of 4384
+Finished 1878 of 4384
+Finished 1879 of 4384
+Finished 1880 of 4384
+Finished 1881 of 4384
+Finished 1882 of 4384
+Finished 1883 of 4384
+Finished 1884 of 4384
+Finished 1885 of 4384
+Finished 1886 of 4384
+Finished 1887 of 4384
+Finished 1888 of 4384
+Finished 1889 of 4384
+Finished 1890 of 4384
+Finished 1891 of 4384
+Finished 1892 of 4384
+Finished 1893 of 4384
+Finished 1894 of 4384
+Finished 1895 of 4384
+Finished 1896 of 4384
+Finished 1897 of 4384
+Finished 1898 of 4384
+Finished 1899 of 4384
+Finished 1900 of 4384
+Finished 1901 of 4384
+Finished 1902 of 4384
+Finished 1903 of 4384
+Finished 1904 of 4384
+Finished 1905 of 4384
+Finished 1906 of 4384
+Finished 1907 of 4384
+Finished 1908 of 4384
+Finished 1909 of 4384
+Finished 1910 of 4384
+Finished 1911 of 4384
+Finished 1912 of 4384
+Finished 1913 of 4384
+Finished 1914 of 4384
+Finished 1915 of 4384
+Finished 1916 of 4384
+Finished 1917 of 4384
+Finished 1918 of 4384
+Finished 1919 of 4384
+Finished 1920 of 4384
+Finished 1921 of 4384
+Finished 1922 of 4384
+Finished 1923 of 4384
+Finished 1924 of 4384
+Finished 1925 of 4384
+Finished 1926 of 4384
+Finished 1927 of 4384
+Finished 1928 of 4384
+Finished 1929 of 4384
+Finished 1930 of 4384
+Finished 1931 of 4384
+Finished 1932 of 4384
+Finished 1933 of 4384
+Finished 1934 of 4384
+Finished 1935 of 4384
+Finished 1936 of 4384
+Finished 1937 of 4384
+Finished 1938 of 4384
+Finished 1939 of 4384
+Finished 1940 of 4384
+Finished 1941 of 4384
+Finished 1942 of 4384
+Finished 1943 of 4384
+Finished 1944 of 4384
+Finished 1945 of 4384
+Finished 1946 of 4384
+Finished 1947 of 4384
+Finished 1948 of 4384
+Finished 1949 of 4384
+Finished 1950 of 4384
+Finished 1951 of 4384
+Finished 1952 of 4384
+Finished 1953 of 4384
+Finished 1954 of 4384
+Finished 1955 of 4384
+Finished 1956 of 4384
+Finished 1957 of 4384
+Finished 1958 of 4384
+Finished 1959 of 4384
+Finished 1960 of 4384
+Finished 1961 of 4384
+Finished 1962 of 4384
+Finished 1963 of 4384
+Finished 1964 of 4384
+Finished 1965 of 4384
+Finished 1966 of 4384
+Finished 1967 of 4384
+Finished 1968 of 4384
+Finished 1969 of 4384
+Finished 1970 of 4384
+Finished 1971 of 4384
+Finished 1972 of 4384
+Finished 1973 of 4384
+Finished 1974 of 4384
+Finished 1975 of 4384
+Finished 1976 of 4384
+Finished 1977 of 4384
+Finished 1978 of 4384
+Finished 1979 of 4384
+Finished 1980 of 4384
+Finished 1981 of 4384
+Finished 1982 of 4384
+Finished 1983 of 4384
+Finished 1984 of 4384
+Finished 1985 of 4384
+Finished 1986 of 4384
+Finished 1987 of 4384
+Finished 1988 of 4384
+Finished 1989 of 4384
+Finished 1990 of 4384
+Finished 1991 of 4384
+Finished 1992 of 4384
+Finished 1993 of 4384
+Finished 1994 of 4384
+Finished 1995 of 4384
+Finished 1996 of 4384
+Finished 1997 of 4384
+Finished 1998 of 4384
+Finished 1999 of 4384
+Finished 2000 of 4384
+Finished 2001 of 4384
+Finished 2002 of 4384
+Finished 2003 of 4384
+Finished 2004 of 4384
+Finished 2005 of 4384
+Finished 2006 of 4384
+Finished 2007 of 4384
+Finished 2008 of 4384
+Finished 2009 of 4384
+Finished 2010 of 4384
+Finished 2011 of 4384
+Finished 2012 of 4384
+Finished 2013 of 4384
+Finished 2014 of 4384
+Finished 2015 of 4384
+Finished 2016 of 4384
+Finished 2017 of 4384
+Finished 2018 of 4384
+Finished 2019 of 4384
+Finished 2020 of 4384
+Finished 2021 of 4384
+Finished 2022 of 4384
+Finished 2023 of 4384
+Finished 2024 of 4384
+Finished 2025 of 4384
+Finished 2026 of 4384
+Finished 2027 of 4384
+Finished 2028 of 4384
+Finished 2029 of 4384
+Finished 2030 of 4384
+Finished 2031 of 4384
+Finished 2032 of 4384
+Finished 2033 of 4384
+Finished 2034 of 4384
+Finished 2035 of 4384
+Finished 2036 of 4384
+Finished 2037 of 4384
+Finished 2038 of 4384
+Finished 2039 of 4384
+Finished 2040 of 4384
+Finished 2041 of 4384
+Finished 2042 of 4384
+Finished 2043 of 4384
+Finished 2044 of 4384
+Finished 2045 of 4384
+Finished 2046 of 4384
+Finished 2047 of 4384
+Finished 2048 of 4384
+Finished 2049 of 4384
+Finished 2050 of 4384
+Finished 2051 of 4384
+Finished 2052 of 4384
+Finished 2053 of 4384
+Finished 2054 of 4384
+Finished 2055 of 4384
+Finished 2056 of 4384
+Finished 2057 of 4384
+Finished 2058 of 4384
+Finished 2059 of 4384
+Finished 2060 of 4384
+Finished 2061 of 4384
+Finished 2062 of 4384
+Finished 2063 of 4384
+Finished 2064 of 4384
+Finished 2065 of 4384
+Finished 2066 of 4384
+Finished 2067 of 4384
+Finished 2068 of 4384
+Finished 2069 of 4384
+Finished 2070 of 4384
+Finished 2071 of 4384
+Finished 2072 of 4384
+Finished 2073 of 4384
+Finished 2074 of 4384
+Finished 2075 of 4384
+Finished 2076 of 4384
+Finished 2077 of 4384
+Finished 2078 of 4384
+Finished 2079 of 4384
+Finished 2080 of 4384
+Finished 2081 of 4384
+Finished 2082 of 4384
+Finished 2083 of 4384
+Finished 2084 of 4384
+Finished 2085 of 4384
+Finished 2086 of 4384
+Finished 2087 of 4384
+Finished 2088 of 4384
+Finished 2089 of 4384
+Finished 2090 of 4384
+Finished 2091 of 4384
+Finished 2092 of 4384
+Finished 2093 of 4384
+Finished 2094 of 4384
+Finished 2095 of 4384
+Finished 2096 of 4384
+Finished 2097 of 4384
+Finished 2098 of 4384
+Finished 2099 of 4384
+Finished 2100 of 4384
+Finished 2101 of 4384
+Finished 2102 of 4384
+Finished 2103 of 4384
+Finished 2104 of 4384
+Finished 2105 of 4384
+Finished 2106 of 4384
+Finished 2107 of 4384
+Finished 2108 of 4384
+Finished 2109 of 4384
+Finished 2110 of 4384
+Finished 2111 of 4384
+Finished 2112 of 4384
+Finished 2113 of 4384
+Finished 2114 of 4384
+Finished 2115 of 4384
+Finished 2116 of 4384
+Finished 2117 of 4384
+Finished 2118 of 4384
+Finished 2119 of 4384
+Finished 2120 of 4384
+Finished 2121 of 4384
+Finished 2122 of 4384
+Finished 2123 of 4384
+Finished 2124 of 4384
+Finished 2125 of 4384
+Finished 2126 of 4384
+Finished 2127 of 4384
+Finished 2128 of 4384
+Finished 2129 of 4384
+Finished 2130 of 4384
+Finished 2131 of 4384
+Finished 2132 of 4384
+Finished 2133 of 4384
+Finished 2134 of 4384
+Finished 2135 of 4384
+Finished 2136 of 4384
+Finished 2137 of 4384
+Finished 2138 of 4384
+Finished 2139 of 4384
+Finished 2140 of 4384
+Finished 2141 of 4384
+Finished 2142 of 4384
+Finished 2143 of 4384
+Finished 2144 of 4384
+Finished 2145 of 4384
+Finished 2146 of 4384
+Finished 2147 of 4384
+Finished 2148 of 4384
+Finished 2149 of 4384
+Finished 2150 of 4384
+Finished 2151 of 4384
+Finished 2152 of 4384
+Finished 2153 of 4384
+Finished 2154 of 4384
+Finished 2155 of 4384
+Finished 2156 of 4384
+Finished 2157 of 4384
+Finished 2158 of 4384
+Finished 2159 of 4384
+Finished 2160 of 4384
+Finished 2161 of 4384
+Finished 2162 of 4384
+Finished 2163 of 4384
+Finished 2164 of 4384
+Finished 2165 of 4384
+Finished 2166 of 4384
+Finished 2167 of 4384
+Finished 2168 of 4384
+Finished 2169 of 4384
+Finished 2170 of 4384
+Finished 2171 of 4384
+Finished 2172 of 4384
+Finished 2173 of 4384
+Finished 2174 of 4384
+Finished 2175 of 4384
+Finished 2176 of 4384
+Finished 2177 of 4384
+Finished 2178 of 4384
+Finished 2179 of 4384
+Finished 2180 of 4384
+Finished 2181 of 4384
+Finished 2182 of 4384
+Finished 2183 of 4384
+Finished 2184 of 4384
+Finished 2185 of 4384
+Finished 2186 of 4384
+Finished 2187 of 4384
+Finished 2188 of 4384
+Finished 2189 of 4384
+Finished 2190 of 4384
+Finished 2191 of 4384
+Finished 2192 of 4384
+Finished 2193 of 4384
+Finished 2194 of 4384
+Finished 2195 of 4384
+Finished 2196 of 4384
+Finished 2197 of 4384
+Finished 2198 of 4384
+Finished 2199 of 4384
+Finished 2200 of 4384
+Finished 2201 of 4384
+Finished 2202 of 4384
+Finished 2203 of 4384
+Finished 2204 of 4384
+Finished 2205 of 4384
+Finished 2206 of 4384
+Finished 2207 of 4384
+Finished 2208 of 4384
+Finished 2209 of 4384
+Finished 2210 of 4384
+Finished 2211 of 4384
+Finished 2212 of 4384
+Finished 2213 of 4384
+Finished 2214 of 4384
+Finished 2215 of 4384
+Finished 2216 of 4384
+Finished 2217 of 4384
+Finished 2218 of 4384
+Finished 2219 of 4384
+Finished 2220 of 4384
+Finished 2221 of 4384
+Finished 2222 of 4384
+Finished 2223 of 4384
+Finished 2224 of 4384
+Finished 2225 of 4384
+Finished 2226 of 4384
+Finished 2227 of 4384
+Finished 2228 of 4384
+Finished 2229 of 4384
+Finished 2230 of 4384
+Finished 2231 of 4384
+Finished 2232 of 4384
+Finished 2233 of 4384
+Finished 2234 of 4384
+Finished 2235 of 4384
+Finished 2236 of 4384
+Finished 2237 of 4384
+Finished 2238 of 4384
+Finished 2239 of 4384
+Finished 2240 of 4384
+Finished 2241 of 4384
+Finished 2242 of 4384
+Finished 2243 of 4384
+Finished 2244 of 4384
+Finished 2245 of 4384
+Finished 2246 of 4384
+Finished 2247 of 4384
+Finished 2248 of 4384
+Finished 2249 of 4384
+Finished 2250 of 4384
+Finished 2251 of 4384
+Finished 2252 of 4384
+Finished 2253 of 4384
+Finished 2254 of 4384
+Finished 2255 of 4384
+Finished 2256 of 4384
+Finished 2257 of 4384
+Finished 2258 of 4384
+Finished 2259 of 4384
+Finished 2260 of 4384
+Finished 2261 of 4384
+Finished 2262 of 4384
+Finished 2263 of 4384
+Finished 2264 of 4384
+Finished 2265 of 4384
+Finished 2266 of 4384
+Finished 2267 of 4384
+Finished 2268 of 4384
+Finished 2269 of 4384
+Finished 2270 of 4384
+Finished 2271 of 4384
+Finished 2272 of 4384
+Finished 2273 of 4384
+Finished 2274 of 4384
+Finished 2275 of 4384
+Finished 2276 of 4384
+Finished 2277 of 4384
+Finished 2278 of 4384
+Finished 2279 of 4384
+Finished 2280 of 4384
+Finished 2281 of 4384
+Finished 2282 of 4384
+Finished 2283 of 4384
+Finished 2284 of 4384
+Finished 2285 of 4384
+Finished 2286 of 4384
+Finished 2287 of 4384
+Finished 2288 of 4384
+Finished 2289 of 4384
+Finished 2290 of 4384
+Finished 2291 of 4384
+Finished 2292 of 4384
+Finished 2293 of 4384
+Finished 2294 of 4384
+Finished 2295 of 4384
+Finished 2296 of 4384
+Finished 2297 of 4384
+Finished 2298 of 4384
+Finished 2299 of 4384
+Finished 2300 of 4384
+Finished 2301 of 4384
+Finished 2302 of 4384
+Finished 2303 of 4384
+Finished 2304 of 4384
+Finished 2305 of 4384
+Finished 2306 of 4384
+Finished 2307 of 4384
+Finished 2308 of 4384
+Finished 2309 of 4384
+Finished 2310 of 4384
+Finished 2311 of 4384
+Finished 2312 of 4384
+Finished 2313 of 4384
+Finished 2314 of 4384
+Finished 2315 of 4384
+Finished 2316 of 4384
+Finished 2317 of 4384
+Finished 2318 of 4384
+Finished 2319 of 4384
+Finished 2320 of 4384
+Finished 2321 of 4384
+Finished 2322 of 4384
+Finished 2323 of 4384
+Finished 2324 of 4384
+Finished 2325 of 4384
+Finished 2326 of 4384
+Finished 2327 of 4384
+Finished 2328 of 4384
+Finished 2329 of 4384
+Finished 2330 of 4384
+Finished 2331 of 4384
+Finished 2332 of 4384
+Finished 2333 of 4384
+Finished 2334 of 4384
+Finished 2335 of 4384
+Finished 2336 of 4384
+Finished 2337 of 4384
+Finished 2338 of 4384
+Finished 2339 of 4384
+Finished 2340 of 4384
+Finished 2341 of 4384
+Finished 2342 of 4384
+Finished 2343 of 4384
+Finished 2344 of 4384
+Finished 2345 of 4384
+Finished 2346 of 4384
+Finished 2347 of 4384
+Finished 2348 of 4384
+Finished 2349 of 4384
+Finished 2350 of 4384
+Finished 2351 of 4384
+Finished 2352 of 4384
+Finished 2353 of 4384
+Finished 2354 of 4384
+Finished 2355 of 4384
+Finished 2356 of 4384
+Finished 2357 of 4384
+Finished 2358 of 4384
+Finished 2359 of 4384
+Finished 2360 of 4384
+Finished 2361 of 4384
+Finished 2362 of 4384
+Finished 2363 of 4384
+Finished 2364 of 4384
+Finished 2365 of 4384
+Finished 2366 of 4384
+Finished 2367 of 4384
+Finished 2368 of 4384
+Finished 2369 of 4384
+Finished 2370 of 4384
+Finished 2371 of 4384
+Finished 2372 of 4384
+Finished 2373 of 4384
+Finished 2374 of 4384
+Finished 2375 of 4384
+Finished 2376 of 4384
+Finished 2377 of 4384
+Finished 2378 of 4384
+Finished 2379 of 4384
+Finished 2380 of 4384
+Finished 2381 of 4384
+Finished 2382 of 4384
+Finished 2383 of 4384
+Finished 2384 of 4384
+Finished 2385 of 4384
+Finished 2386 of 4384
+Finished 2387 of 4384
+Finished 2388 of 4384
+Finished 2389 of 4384
+Finished 2390 of 4384
+Finished 2391 of 4384
+Finished 2392 of 4384
+Finished 2393 of 4384
+Finished 2394 of 4384
+Finished 2395 of 4384
+Finished 2396 of 4384
+Finished 2397 of 4384
+Finished 2398 of 4384
+Finished 2399 of 4384
+Finished 2400 of 4384
+Finished 2401 of 4384
+Finished 2402 of 4384
+Finished 2403 of 4384
+Finished 2404 of 4384
+Finished 2405 of 4384
+Finished 2406 of 4384
+Finished 2407 of 4384
+Finished 2408 of 4384
+Finished 2409 of 4384
+Finished 2410 of 4384
+Finished 2411 of 4384
+Finished 2412 of 4384
+Finished 2413 of 4384
+Finished 2414 of 4384
+Finished 2415 of 4384
+Finished 2416 of 4384
+Finished 2417 of 4384
+Finished 2418 of 4384
+Finished 2419 of 4384
+Finished 2420 of 4384
+Finished 2421 of 4384
+Finished 2422 of 4384
+Finished 2423 of 4384
+Finished 2424 of 4384
+Finished 2425 of 4384
+Finished 2426 of 4384
+Finished 2427 of 4384
+Finished 2428 of 4384
+Finished 2429 of 4384
+Finished 2430 of 4384
+Finished 2431 of 4384
+Finished 2432 of 4384
+Finished 2433 of 4384
+Finished 2434 of 4384
+Finished 2435 of 4384
+Finished 2436 of 4384
+Finished 2437 of 4384
+Finished 2438 of 4384
+Finished 2439 of 4384
+Finished 2440 of 4384
+Finished 2441 of 4384
+Finished 2442 of 4384
+Finished 2443 of 4384
+Finished 2444 of 4384
+Finished 2445 of 4384
+Finished 2446 of 4384
+Finished 2447 of 4384
+Finished 2448 of 4384
+Finished 2449 of 4384
+Finished 2450 of 4384
+Finished 2451 of 4384
+Finished 2452 of 4384
+Finished 2453 of 4384
+Finished 2454 of 4384
+Finished 2455 of 4384
+Finished 2456 of 4384
+Finished 2457 of 4384
+Finished 2458 of 4384
+Finished 2459 of 4384
+Finished 2460 of 4384
+Finished 2461 of 4384
+Finished 2462 of 4384
+Finished 2463 of 4384
+Finished 2464 of 4384
+Finished 2465 of 4384
+Finished 2466 of 4384
+Finished 2467 of 4384
+Finished 2468 of 4384
+Finished 2469 of 4384
+Finished 2470 of 4384
+Finished 2471 of 4384
+Finished 2472 of 4384
+Finished 2473 of 4384
+Finished 2474 of 4384
+Finished 2475 of 4384
+Finished 2476 of 4384
+Finished 2477 of 4384
+Finished 2478 of 4384
+Finished 2479 of 4384
+Finished 2480 of 4384
+Finished 2481 of 4384
+Finished 2482 of 4384
+Finished 2483 of 4384
+Finished 2484 of 4384
+Finished 2485 of 4384
+Finished 2486 of 4384
+Finished 2487 of 4384
+Finished 2488 of 4384
+Finished 2489 of 4384
+Finished 2490 of 4384
+Finished 2491 of 4384
+Finished 2492 of 4384
+Finished 2493 of 4384
+Finished 2494 of 4384
+Finished 2495 of 4384
+Finished 2496 of 4384
+Finished 2497 of 4384
+Finished 2498 of 4384
+Finished 2499 of 4384
+Finished 2500 of 4384
+Finished 2501 of 4384
+Finished 2502 of 4384
+Finished 2503 of 4384
+Finished 2504 of 4384
+Finished 2505 of 4384
+Finished 2506 of 4384
+Finished 2507 of 4384
+Finished 2508 of 4384
+Finished 2509 of 4384
+Finished 2510 of 4384
+Finished 2511 of 4384
+Finished 2512 of 4384
+Finished 2513 of 4384
+Finished 2514 of 4384
+Finished 2515 of 4384
+Finished 2516 of 4384
+Finished 2517 of 4384
+Finished 2518 of 4384
+Finished 2519 of 4384
+Finished 2520 of 4384
+Finished 2521 of 4384
+Finished 2522 of 4384
+Finished 2523 of 4384
+Finished 2524 of 4384
+Finished 2525 of 4384
+Finished 2526 of 4384
+Finished 2527 of 4384
+Finished 2528 of 4384
+Finished 2529 of 4384
+Finished 2530 of 4384
+Finished 2531 of 4384
+Finished 2532 of 4384
+Finished 2533 of 4384
+Finished 2534 of 4384
+Finished 2535 of 4384
+Finished 2536 of 4384
+Finished 2537 of 4384
+Finished 2538 of 4384
+Finished 2539 of 4384
+Finished 2540 of 4384
+Finished 2541 of 4384
+Finished 2542 of 4384
+Finished 2543 of 4384
+Finished 2544 of 4384
+Finished 2545 of 4384
+Finished 2546 of 4384
+Finished 2547 of 4384
+Finished 2548 of 4384
+Finished 2549 of 4384
+Finished 2550 of 4384
+Finished 2551 of 4384
+Finished 2552 of 4384
+Finished 2553 of 4384
+Finished 2554 of 4384
+Finished 2555 of 4384
+Finished 2556 of 4384
+Finished 2557 of 4384
+Finished 2558 of 4384
+Finished 2559 of 4384
+Finished 2560 of 4384
+Finished 2561 of 4384
+Finished 2562 of 4384
+Finished 2563 of 4384
+Finished 2564 of 4384
+Finished 2565 of 4384
+Finished 2566 of 4384
+Finished 2567 of 4384
+Finished 2568 of 4384
+Finished 2569 of 4384
+Finished 2570 of 4384
+Finished 2571 of 4384
+Finished 2572 of 4384
+Finished 2573 of 4384
+Finished 2574 of 4384
+Finished 2575 of 4384
+Finished 2576 of 4384
+Finished 2577 of 4384
+Finished 2578 of 4384
+Finished 2579 of 4384
+Finished 2580 of 4384
+Finished 2581 of 4384
+Finished 2582 of 4384
+Finished 2583 of 4384
+Finished 2584 of 4384
+Finished 2585 of 4384
+Finished 2586 of 4384
+Finished 2587 of 4384
+Finished 2588 of 4384
+Finished 2589 of 4384
+Finished 2590 of 4384
+Finished 2591 of 4384
+Finished 2592 of 4384
+Finished 2593 of 4384
+Finished 2594 of 4384
+Finished 2595 of 4384
+Finished 2596 of 4384
+Finished 2597 of 4384
+Finished 2598 of 4384
+Finished 2599 of 4384
+Finished 2600 of 4384
+Finished 2601 of 4384
+Finished 2602 of 4384
+Finished 2603 of 4384
+Finished 2604 of 4384
+Finished 2605 of 4384
+Finished 2606 of 4384
+Finished 2607 of 4384
+Finished 2608 of 4384
+Finished 2609 of 4384
+Finished 2610 of 4384
+Finished 2611 of 4384
+Finished 2612 of 4384
+Finished 2613 of 4384
+Finished 2614 of 4384
+Finished 2615 of 4384
+Finished 2616 of 4384
+Finished 2617 of 4384
+Finished 2618 of 4384
+Finished 2619 of 4384
+Finished 2620 of 4384
+Finished 2621 of 4384
+Finished 2622 of 4384
+Finished 2623 of 4384
+Finished 2624 of 4384
+Finished 2625 of 4384
+Finished 2626 of 4384
+Finished 2627 of 4384
+Finished 2628 of 4384
+Finished 2629 of 4384
+Finished 2630 of 4384
+Finished 2631 of 4384
+Finished 2632 of 4384
+Finished 2633 of 4384
+Finished 2634 of 4384
+Finished 2635 of 4384
+Finished 2636 of 4384
+Finished 2637 of 4384
+Finished 2638 of 4384
+Finished 2639 of 4384
+Finished 2640 of 4384
+Finished 2641 of 4384
+Finished 2642 of 4384
+Finished 2643 of 4384
+Finished 2644 of 4384
+Finished 2645 of 4384
+Finished 2646 of 4384
+Finished 2647 of 4384
+Finished 2648 of 4384
+Finished 2649 of 4384
+Finished 2650 of 4384
+Finished 2651 of 4384
+Finished 2652 of 4384
+Finished 2653 of 4384
+Finished 2654 of 4384
+Finished 2655 of 4384
+Finished 2656 of 4384
+Finished 2657 of 4384
+Finished 2658 of 4384
+Finished 2659 of 4384
+Finished 2660 of 4384
+Finished 2661 of 4384
+Finished 2662 of 4384
+Finished 2663 of 4384
+Finished 2664 of 4384
+Finished 2665 of 4384
+Finished 2666 of 4384
+Finished 2667 of 4384
+Finished 2668 of 4384
+Finished 2669 of 4384
+Finished 2670 of 4384
+Finished 2671 of 4384
+Finished 2672 of 4384
+Finished 2673 of 4384
+Finished 2674 of 4384
+Finished 2675 of 4384
+Finished 2676 of 4384
+Finished 2677 of 4384
+Finished 2678 of 4384
+Finished 2679 of 4384
+Finished 2680 of 4384
+Finished 2681 of 4384
+Finished 2682 of 4384
+Finished 2683 of 4384
+Finished 2684 of 4384
+Finished 2685 of 4384
+Finished 2686 of 4384
+Finished 2687 of 4384
+Finished 2688 of 4384
+Finished 2689 of 4384
+Finished 2690 of 4384
+Finished 2691 of 4384
+Finished 2692 of 4384
+Finished 2693 of 4384
+Finished 2694 of 4384
+Finished 2695 of 4384
+Finished 2696 of 4384
+Finished 2697 of 4384
+Finished 2698 of 4384
+Finished 2699 of 4384
+Finished 2700 of 4384
+Finished 2701 of 4384
+Finished 2702 of 4384
+Finished 2703 of 4384
+Finished 2704 of 4384
+Finished 2705 of 4384
+Finished 2706 of 4384
+Finished 2707 of 4384
+Finished 2708 of 4384
+Finished 2709 of 4384
+Finished 2710 of 4384
+Finished 2711 of 4384
+Finished 2712 of 4384
+Finished 2713 of 4384
+Finished 2714 of 4384
+Finished 2715 of 4384
+Finished 2716 of 4384
+Finished 2717 of 4384
+Finished 2718 of 4384
+Finished 2719 of 4384
+Finished 2720 of 4384
+Finished 2721 of 4384
+Finished 2722 of 4384
+Finished 2723 of 4384
+Finished 2724 of 4384
+Finished 2725 of 4384
+Finished 2726 of 4384
+Finished 2727 of 4384
+Finished 2728 of 4384
+Finished 2729 of 4384
+Finished 2730 of 4384
+Finished 2731 of 4384
+Finished 2732 of 4384
+Finished 2733 of 4384
+Finished 2734 of 4384
+Finished 2735 of 4384
+Finished 2736 of 4384
+Finished 2737 of 4384
+Finished 2738 of 4384
+Finished 2739 of 4384
+Finished 2740 of 4384
+Finished 2741 of 4384
+Finished 2742 of 4384
+Finished 2743 of 4384
+Finished 2744 of 4384
+Finished 2745 of 4384
+Finished 2746 of 4384
+Finished 2747 of 4384
+Finished 2748 of 4384
+Finished 2749 of 4384
+Finished 2750 of 4384
+Finished 2751 of 4384
+Finished 2752 of 4384
+Finished 2753 of 4384
+Finished 2754 of 4384
+Finished 2755 of 4384
+Finished 2756 of 4384
+Finished 2757 of 4384
+Finished 2758 of 4384
+Finished 2759 of 4384
+Finished 2760 of 4384
+Finished 2761 of 4384
+Finished 2762 of 4384
+Finished 2763 of 4384
+Finished 2764 of 4384
+Finished 2765 of 4384
+Finished 2766 of 4384
+Finished 2767 of 4384
+Finished 2768 of 4384
+Finished 2769 of 4384
+Finished 2770 of 4384
+Finished 2771 of 4384
+Finished 2772 of 4384
+Finished 2773 of 4384
+Finished 2774 of 4384
+Finished 2775 of 4384
+Finished 2776 of 4384
+Finished 2777 of 4384
+Finished 2778 of 4384
+Finished 2779 of 4384
+Finished 2780 of 4384
+Finished 2781 of 4384
+Finished 2782 of 4384
+Finished 2783 of 4384
+Finished 2784 of 4384
+Finished 2785 of 4384
+Finished 2786 of 4384
+Finished 2787 of 4384
+Finished 2788 of 4384
+Finished 2789 of 4384
+Finished 2790 of 4384
+Finished 2791 of 4384
+Finished 2792 of 4384
+Finished 2793 of 4384
+Finished 2794 of 4384
+Finished 2795 of 4384
+Finished 2796 of 4384
+Finished 2797 of 4384
+Finished 2798 of 4384
+Finished 2799 of 4384
+Finished 2800 of 4384
+Finished 2801 of 4384
+Finished 2802 of 4384
+Finished 2803 of 4384
+Finished 2804 of 4384
+Finished 2805 of 4384
+Finished 2806 of 4384
+Finished 2807 of 4384
+Finished 2808 of 4384
+Finished 2809 of 4384
+Finished 2810 of 4384
+Finished 2811 of 4384
+Finished 2812 of 4384
+Finished 2813 of 4384
+Finished 2814 of 4384
+Finished 2815 of 4384
+Finished 2816 of 4384
+Finished 2817 of 4384
+Finished 2818 of 4384
+Finished 2819 of 4384
+Finished 2820 of 4384
+Finished 2821 of 4384
+Finished 2822 of 4384
+Finished 2823 of 4384
+Finished 2824 of 4384
+Finished 2825 of 4384
+Finished 2826 of 4384
+Finished 2827 of 4384
+Finished 2828 of 4384
+Finished 2829 of 4384
+Finished 2830 of 4384
+Finished 2831 of 4384
+Finished 2832 of 4384
+Finished 2833 of 4384
+Finished 2834 of 4384
+Finished 2835 of 4384
+Finished 2836 of 4384
+Finished 2837 of 4384
+Finished 2838 of 4384
+Finished 2839 of 4384
+Finished 2840 of 4384
+Finished 2841 of 4384
+Finished 2842 of 4384
+Finished 2843 of 4384
+Finished 2844 of 4384
+Finished 2845 of 4384
+Finished 2846 of 4384
+Finished 2847 of 4384
+Finished 2848 of 4384
+Finished 2849 of 4384
+Finished 2850 of 4384
+Finished 2851 of 4384
+Finished 2852 of 4384
+Finished 2853 of 4384
+Finished 2854 of 4384
+Finished 2855 of 4384
+Finished 2856 of 4384
+Finished 2857 of 4384
+Finished 2858 of 4384
+Finished 2859 of 4384
+Finished 2860 of 4384
+Finished 2861 of 4384
+Finished 2862 of 4384
+Finished 2863 of 4384
+Finished 2864 of 4384
+Finished 2865 of 4384
+Finished 2866 of 4384
+Finished 2867 of 4384
+Finished 2868 of 4384
+Finished 2869 of 4384
+Finished 2870 of 4384
+Finished 2871 of 4384
+Finished 2872 of 4384
+Finished 2873 of 4384
+Finished 2874 of 4384
+Finished 2875 of 4384
+Finished 2876 of 4384
+Finished 2877 of 4384
+Finished 2878 of 4384
+Finished 2879 of 4384
+Finished 2880 of 4384
+Finished 2881 of 4384
+Finished 2882 of 4384
+Finished 2883 of 4384
+Finished 2884 of 4384
+Finished 2885 of 4384
+Finished 2886 of 4384
+Finished 2887 of 4384
+Finished 2888 of 4384
+Finished 2889 of 4384
+Finished 2890 of 4384
+Finished 2891 of 4384
+Finished 2892 of 4384
+Finished 2893 of 4384
+Finished 2894 of 4384
+Finished 2895 of 4384
+Finished 2896 of 4384
+Finished 2897 of 4384
+Finished 2898 of 4384
+Finished 2899 of 4384
+Finished 2900 of 4384
+Finished 2901 of 4384
+Finished 2902 of 4384
+Finished 2903 of 4384
+Finished 2904 of 4384
+Finished 2905 of 4384
+Finished 2906 of 4384
+Finished 2907 of 4384
+Finished 2908 of 4384
+Finished 2909 of 4384
+Finished 2910 of 4384
+Finished 2911 of 4384
+Finished 2912 of 4384
+Finished 2913 of 4384
+Finished 2914 of 4384
+Finished 2915 of 4384
+Finished 2916 of 4384
+Finished 2917 of 4384
+Finished 2918 of 4384
+Finished 2919 of 4384
+Finished 2920 of 4384
+Finished 2921 of 4384
+Finished 2922 of 4384
+Finished 2923 of 4384
+Finished 2924 of 4384
+Finished 2925 of 4384
+Finished 2926 of 4384
+Finished 2927 of 4384
+Finished 2928 of 4384
+Finished 2929 of 4384
+Finished 2930 of 4384
+Finished 2931 of 4384
+Finished 2932 of 4384
+Finished 2933 of 4384
+Finished 2934 of 4384
+Finished 2935 of 4384
+Finished 2936 of 4384
+Finished 2937 of 4384
+Finished 2938 of 4384
+Finished 2939 of 4384
+Finished 2940 of 4384
+Finished 2941 of 4384
+Finished 2942 of 4384
+Finished 2943 of 4384
+Finished 2944 of 4384
+Finished 2945 of 4384
+Finished 2946 of 4384
+Finished 2947 of 4384
+Finished 2948 of 4384
+Finished 2949 of 4384
+Finished 2950 of 4384
+Finished 2951 of 4384
+Finished 2952 of 4384
+Finished 2953 of 4384
+Finished 2954 of 4384
+Finished 2955 of 4384
+Finished 2956 of 4384
+Finished 2957 of 4384
+Finished 2958 of 4384
+Finished 2959 of 4384
+Finished 2960 of 4384
+Finished 2961 of 4384
+Finished 2962 of 4384
+Finished 2963 of 4384
+Finished 2964 of 4384
+Finished 2965 of 4384
+Finished 2966 of 4384
+Finished 2967 of 4384
+Finished 2968 of 4384
+Finished 2969 of 4384
+Finished 2970 of 4384
+Finished 2971 of 4384
+Finished 2972 of 4384
+Finished 2973 of 4384
+Finished 2974 of 4384
+Finished 2975 of 4384
+Finished 2976 of 4384
+Finished 2977 of 4384
+Finished 2978 of 4384
+Finished 2979 of 4384
+Finished 2980 of 4384
+Finished 2981 of 4384
+Finished 2982 of 4384
+Finished 2983 of 4384
+Finished 2984 of 4384
+Finished 2985 of 4384
+Finished 2986 of 4384
+Finished 2987 of 4384
+Finished 2988 of 4384
+Finished 2989 of 4384
+Finished 2990 of 4384
+Finished 2991 of 4384
+Finished 2992 of 4384
+Finished 2993 of 4384
+Finished 2994 of 4384
+Finished 2995 of 4384
+Finished 2996 of 4384
+Finished 2997 of 4384
+Finished 2998 of 4384
+Finished 2999 of 4384
+Finished 3000 of 4384
+Finished 3001 of 4384
+Finished 3002 of 4384
+Finished 3003 of 4384
+Finished 3004 of 4384
+Finished 3005 of 4384
+Finished 3006 of 4384
+Finished 3007 of 4384
+Finished 3008 of 4384
+Finished 3009 of 4384
+Finished 3010 of 4384
+Finished 3011 of 4384
+Finished 3012 of 4384
+Finished 3013 of 4384
+Finished 3014 of 4384
+Finished 3015 of 4384
+Finished 3016 of 4384
+Finished 3017 of 4384
+Finished 3018 of 4384
+Finished 3019 of 4384
+Finished 3020 of 4384
+Finished 3021 of 4384
+Finished 3022 of 4384
+Finished 3023 of 4384
+Finished 3024 of 4384
+Finished 3025 of 4384
+Finished 3026 of 4384
+Finished 3027 of 4384
+Finished 3028 of 4384
+Finished 3029 of 4384
+Finished 3030 of 4384
+Finished 3031 of 4384
+Finished 3032 of 4384
+Finished 3033 of 4384
+Finished 3034 of 4384
+Finished 3035 of 4384
+Finished 3036 of 4384
+Finished 3037 of 4384
+Finished 3038 of 4384
+Finished 3039 of 4384
+Finished 3040 of 4384
+Finished 3041 of 4384
+Finished 3042 of 4384
+Finished 3043 of 4384
+Finished 3044 of 4384
+Finished 3045 of 4384
+Finished 3046 of 4384
+Finished 3047 of 4384
+Finished 3048 of 4384
+Finished 3049 of 4384
+Finished 3050 of 4384
+Finished 3051 of 4384
+Finished 3052 of 4384
+Finished 3053 of 4384
+Finished 3054 of 4384
+Finished 3055 of 4384
+Finished 3056 of 4384
+Finished 3057 of 4384
+Finished 3058 of 4384
+Finished 3059 of 4384
+Finished 3060 of 4384
+Finished 3061 of 4384
+Finished 3062 of 4384
+Finished 3063 of 4384
+Finished 3064 of 4384
+Finished 3065 of 4384
+Finished 3066 of 4384
+Finished 3067 of 4384
+Finished 3068 of 4384
+Finished 3069 of 4384
+Finished 3070 of 4384
+Finished 3071 of 4384
+Finished 3072 of 4384
+Finished 3073 of 4384
+Finished 3074 of 4384
+Finished 3075 of 4384
+Finished 3076 of 4384
+Finished 3077 of 4384
+Finished 3078 of 4384
+Finished 3079 of 4384
+Finished 3080 of 4384
+Finished 3081 of 4384
+Finished 3082 of 4384
+Finished 3083 of 4384
+Finished 3084 of 4384
+Finished 3085 of 4384
+Finished 3086 of 4384
+Finished 3087 of 4384
+Finished 3088 of 4384
+Finished 3089 of 4384
+Finished 3090 of 4384
+Finished 3091 of 4384
+Finished 3092 of 4384
+Finished 3093 of 4384
+Finished 3094 of 4384
+Finished 3095 of 4384
+Finished 3096 of 4384
+Finished 3097 of 4384
+Finished 3098 of 4384
+Finished 3099 of 4384
+Finished 3100 of 4384
+Finished 3101 of 4384
+Finished 3102 of 4384
+Finished 3103 of 4384
+Finished 3104 of 4384
+Finished 3105 of 4384
+Finished 3106 of 4384
+Finished 3107 of 4384
+Finished 3108 of 4384
+Finished 3109 of 4384
+Finished 3110 of 4384
+Finished 3111 of 4384
+Finished 3112 of 4384
+Finished 3113 of 4384
+Finished 3114 of 4384
+Finished 3115 of 4384
+Finished 3116 of 4384
+Finished 3117 of 4384
+Finished 3118 of 4384
+Finished 3119 of 4384
+Finished 3120 of 4384
+Finished 3121 of 4384
+Finished 3122 of 4384
+Finished 3123 of 4384
+Finished 3124 of 4384
+Finished 3125 of 4384
+Finished 3126 of 4384
+Finished 3127 of 4384
+Finished 3128 of 4384
+Finished 3129 of 4384
+Finished 3130 of 4384
+Finished 3131 of 4384
+Finished 3132 of 4384
+Finished 3133 of 4384
+Finished 3134 of 4384
+Finished 3135 of 4384
+Finished 3136 of 4384
+Finished 3137 of 4384
+Finished 3138 of 4384
+Finished 3139 of 4384
+Finished 3140 of 4384
+Finished 3141 of 4384
+Finished 3142 of 4384
+Finished 3143 of 4384
+Finished 3144 of 4384
+Finished 3145 of 4384
+Finished 3146 of 4384
+Finished 3147 of 4384
+Finished 3148 of 4384
+Finished 3149 of 4384
+Finished 3150 of 4384
+Finished 3151 of 4384
+Finished 3152 of 4384
+Finished 3153 of 4384
+Finished 3154 of 4384
+Finished 3155 of 4384
+Finished 3156 of 4384
+Finished 3157 of 4384
+Finished 3158 of 4384
+Finished 3159 of 4384
+Finished 3160 of 4384
+Finished 3161 of 4384
+Finished 3162 of 4384
+Finished 3163 of 4384
+Finished 3164 of 4384
+Finished 3165 of 4384
+Finished 3166 of 4384
+Finished 3167 of 4384
+Finished 3168 of 4384
+Finished 3169 of 4384
+Finished 3170 of 4384
+Finished 3171 of 4384
+Finished 3172 of 4384
+Finished 3173 of 4384
+Finished 3174 of 4384
+Finished 3175 of 4384
+Finished 3176 of 4384
+Finished 3177 of 4384
+Finished 3178 of 4384
+Finished 3179 of 4384
+Finished 3180 of 4384
+Finished 3181 of 4384
+Finished 3182 of 4384
+Finished 3183 of 4384
+Finished 3184 of 4384
+Finished 3185 of 4384
+Finished 3186 of 4384
+Finished 3187 of 4384
+Finished 3188 of 4384
+Finished 3189 of 4384
+Finished 3190 of 4384
+Finished 3191 of 4384
+Finished 3192 of 4384
+Finished 3193 of 4384
+Finished 3194 of 4384
+Finished 3195 of 4384
+Finished 3196 of 4384
+Finished 3197 of 4384
+Finished 3198 of 4384
+Finished 3199 of 4384
+Finished 3200 of 4384
+Finished 3201 of 4384
+Finished 3202 of 4384
+Finished 3203 of 4384
+Finished 3204 of 4384
+Finished 3205 of 4384
+Finished 3206 of 4384
+Finished 3207 of 4384
+Finished 3208 of 4384
+Finished 3209 of 4384
+Finished 3210 of 4384
+Finished 3211 of 4384
+Finished 3212 of 4384
+Finished 3213 of 4384
+Finished 3214 of 4384
+Finished 3215 of 4384
+Finished 3216 of 4384
+Finished 3217 of 4384
+Finished 3218 of 4384
+Finished 3219 of 4384
+Finished 3220 of 4384
+Finished 3221 of 4384
+Finished 3222 of 4384
+Finished 3223 of 4384
+Finished 3224 of 4384
+Finished 3225 of 4384
+Finished 3226 of 4384
+Finished 3227 of 4384
+Finished 3228 of 4384
+Finished 3229 of 4384
+Finished 3230 of 4384
+Finished 3231 of 4384
+Finished 3232 of 4384
+Finished 3233 of 4384
+Finished 3234 of 4384
+Finished 3235 of 4384
+Finished 3236 of 4384
+Finished 3237 of 4384
+Finished 3238 of 4384
+Finished 3239 of 4384
+Finished 3240 of 4384
+Finished 3241 of 4384
+Finished 3242 of 4384
+Finished 3243 of 4384
+Finished 3244 of 4384
+Finished 3245 of 4384
+Finished 3246 of 4384
+Finished 3247 of 4384
+Finished 3248 of 4384
+Finished 3249 of 4384
+Finished 3250 of 4384
+Finished 3251 of 4384
+Finished 3252 of 4384
+Finished 3253 of 4384
+Finished 3254 of 4384
+Finished 3255 of 4384
+Finished 3256 of 4384
+Finished 3257 of 4384
+Finished 3258 of 4384
+Finished 3259 of 4384
+Finished 3260 of 4384
+Finished 3261 of 4384
+Finished 3262 of 4384
+Finished 3263 of 4384
+Finished 3264 of 4384
+Finished 3265 of 4384
+Finished 3266 of 4384
+Finished 3267 of 4384
+Finished 3268 of 4384
+Finished 3269 of 4384
+Finished 3270 of 4384
+Finished 3271 of 4384
+Finished 3272 of 4384
+Finished 3273 of 4384
+Finished 3274 of 4384
+Finished 3275 of 4384
+Finished 3276 of 4384
+Finished 3277 of 4384
+Finished 3278 of 4384
+Finished 3279 of 4384
+Finished 3280 of 4384
+Finished 3281 of 4384
+Finished 3282 of 4384
+Finished 3283 of 4384
+Finished 3284 of 4384
+Finished 3285 of 4384
+Finished 3286 of 4384
+Finished 3287 of 4384
+Finished 3288 of 4384
+Finished 3289 of 4384
+Finished 3290 of 4384
+Finished 3291 of 4384
+Finished 3292 of 4384
+Finished 3293 of 4384
+Finished 3294 of 4384
+Finished 3295 of 4384
+Finished 3296 of 4384
+Finished 3297 of 4384
+Finished 3298 of 4384
+Finished 3299 of 4384
+Finished 3300 of 4384
+Finished 3301 of 4384
+Finished 3302 of 4384
+Finished 3303 of 4384
+Finished 3304 of 4384
+Finished 3305 of 4384
+Finished 3306 of 4384
+Finished 3307 of 4384
+Finished 3308 of 4384
+Finished 3309 of 4384
+Finished 3310 of 4384
+Finished 3311 of 4384
+Finished 3312 of 4384
+Finished 3313 of 4384
+Finished 3314 of 4384
+Finished 3315 of 4384
+Finished 3316 of 4384
+Finished 3317 of 4384
+Finished 3318 of 4384
+Finished 3319 of 4384
+Finished 3320 of 4384
+Finished 3321 of 4384
+Finished 3322 of 4384
+Finished 3323 of 4384
+Finished 3324 of 4384
+Finished 3325 of 4384
+Finished 3326 of 4384
+Finished 3327 of 4384
+Finished 3328 of 4384
+Finished 3329 of 4384
+Finished 3330 of 4384
+Finished 3331 of 4384
+Finished 3332 of 4384
+Finished 3333 of 4384
+Finished 3334 of 4384
+Finished 3335 of 4384
+Finished 3336 of 4384
+Finished 3337 of 4384
+Finished 3338 of 4384
+Finished 3339 of 4384
+Finished 3340 of 4384
+Finished 3341 of 4384
+Finished 3342 of 4384
+Finished 3343 of 4384
+Finished 3344 of 4384
+Finished 3345 of 4384
+Finished 3346 of 4384
+Finished 3347 of 4384
+Finished 3348 of 4384
+Finished 3349 of 4384
+Finished 3350 of 4384
+Finished 3351 of 4384
+Finished 3352 of 4384
+Finished 3353 of 4384
+Finished 3354 of 4384
+Finished 3355 of 4384
+Finished 3356 of 4384
+Finished 3357 of 4384
+Finished 3358 of 4384
+Finished 3359 of 4384
+Finished 3360 of 4384
+Finished 3361 of 4384
+Finished 3362 of 4384
+Finished 3363 of 4384
+Finished 3364 of 4384
+Finished 3365 of 4384
+Finished 3366 of 4384
+Finished 3367 of 4384
+Finished 3368 of 4384
+Finished 3369 of 4384
+Finished 3370 of 4384
+Finished 3371 of 4384
+Finished 3372 of 4384
+Finished 3373 of 4384
+Finished 3374 of 4384
+Finished 3375 of 4384
+Finished 3376 of 4384
+Finished 3377 of 4384
+Finished 3378 of 4384
+Finished 3379 of 4384
+Finished 3380 of 4384
+Finished 3381 of 4384
+Finished 3382 of 4384
+Finished 3383 of 4384
+Finished 3384 of 4384
+Finished 3385 of 4384
+Finished 3386 of 4384
+Finished 3387 of 4384
+Finished 3388 of 4384
+Finished 3389 of 4384
+Finished 3390 of 4384
+Finished 3391 of 4384
+Finished 3392 of 4384
+Finished 3393 of 4384
+Finished 3394 of 4384
+Finished 3395 of 4384
+Finished 3396 of 4384
+Finished 3397 of 4384
+Finished 3398 of 4384
+Finished 3399 of 4384
+Finished 3400 of 4384
+Finished 3401 of 4384
+Finished 3402 of 4384
+Finished 3403 of 4384
+Finished 3404 of 4384
+Finished 3405 of 4384
+Finished 3406 of 4384
+Finished 3407 of 4384
+Finished 3408 of 4384
+Finished 3409 of 4384
+Finished 3410 of 4384
+Finished 3411 of 4384
+Finished 3412 of 4384
+Finished 3413 of 4384
+Finished 3414 of 4384
+Finished 3415 of 4384
+Finished 3416 of 4384
+Finished 3417 of 4384
+Finished 3418 of 4384
+Finished 3419 of 4384
+Finished 3420 of 4384
+Finished 3421 of 4384
+Finished 3422 of 4384
+Finished 3423 of 4384
+Finished 3424 of 4384
+Finished 3425 of 4384
+Finished 3426 of 4384
+Finished 3427 of 4384
+Finished 3428 of 4384
+Finished 3429 of 4384
+Finished 3430 of 4384
+Finished 3431 of 4384
+Finished 3432 of 4384
+Finished 3433 of 4384
+Finished 3434 of 4384
+Finished 3435 of 4384
+Finished 3436 of 4384
+Finished 3437 of 4384
+Finished 3438 of 4384
+Finished 3439 of 4384
+Finished 3440 of 4384
+Finished 3441 of 4384
+Finished 3442 of 4384
+Finished 3443 of 4384
+Finished 3444 of 4384
+Finished 3445 of 4384
+Finished 3446 of 4384
+Finished 3447 of 4384
+Finished 3448 of 4384
+Finished 3449 of 4384
+Finished 3450 of 4384
+Finished 3451 of 4384
+Finished 3452 of 4384
+Finished 3453 of 4384
+Finished 3454 of 4384
+Finished 3455 of 4384
+Finished 3456 of 4384
+Finished 3457 of 4384
+Finished 3458 of 4384
+Finished 3459 of 4384
+Finished 3460 of 4384
+Finished 3461 of 4384
+Finished 3462 of 4384
+Finished 3463 of 4384
+Finished 3464 of 4384
+Finished 3465 of 4384
+Finished 3466 of 4384
+Finished 3467 of 4384
+Finished 3468 of 4384
+Finished 3469 of 4384
+Finished 3470 of 4384
+Finished 3471 of 4384
+Finished 3472 of 4384
+Finished 3473 of 4384
+Finished 3474 of 4384
+Finished 3475 of 4384
+Finished 3476 of 4384
+Finished 3477 of 4384
+Finished 3478 of 4384
+Finished 3479 of 4384
+Finished 3480 of 4384
+Finished 3481 of 4384
+Finished 3482 of 4384
+Finished 3483 of 4384
+Finished 3484 of 4384
+Finished 3485 of 4384
+Finished 3486 of 4384
+Finished 3487 of 4384
+Finished 3488 of 4384
+Finished 3489 of 4384
+Finished 3490 of 4384
+Finished 3491 of 4384
+Finished 3492 of 4384
+Finished 3493 of 4384
+Finished 3494 of 4384
+Finished 3495 of 4384
+Finished 3496 of 4384
+Finished 3497 of 4384
+Finished 3498 of 4384
+Finished 3499 of 4384
+Finished 3500 of 4384
+Finished 3501 of 4384
+Finished 3502 of 4384
+Finished 3503 of 4384
+Finished 3504 of 4384
+Finished 3505 of 4384
+Finished 3506 of 4384
+Finished 3507 of 4384
+Finished 3508 of 4384
+Finished 3509 of 4384
+Finished 3510 of 4384
+Finished 3511 of 4384
+Finished 3512 of 4384
+Finished 3513 of 4384
+Finished 3514 of 4384
+Finished 3515 of 4384
+Finished 3516 of 4384
+Finished 3517 of 4384
+Finished 3518 of 4384
+Finished 3519 of 4384
+Finished 3520 of 4384
+Finished 3521 of 4384
+Finished 3522 of 4384
+Finished 3523 of 4384
+Finished 3524 of 4384
+Finished 3525 of 4384
+Finished 3526 of 4384
+Finished 3527 of 4384
+Finished 3528 of 4384
+Finished 3529 of 4384
+Finished 3530 of 4384
+Finished 3531 of 4384
+Finished 3532 of 4384
+Finished 3533 of 4384
+Finished 3534 of 4384
+Finished 3535 of 4384
+Finished 3536 of 4384
+Finished 3537 of 4384
+Finished 3538 of 4384
+Finished 3539 of 4384
+Finished 3540 of 4384
+Finished 3541 of 4384
+Finished 3542 of 4384
+Finished 3543 of 4384
+Finished 3544 of 4384
+Finished 3545 of 4384
+Finished 3546 of 4384
+Finished 3547 of 4384
+Finished 3548 of 4384
+Finished 3549 of 4384
+Finished 3550 of 4384
+Finished 3551 of 4384
+Finished 3552 of 4384
+Finished 3553 of 4384
+Finished 3554 of 4384
+Finished 3555 of 4384
+Finished 3556 of 4384
+Finished 3557 of 4384
+Finished 3558 of 4384
+Finished 3559 of 4384
+Finished 3560 of 4384
+Finished 3561 of 4384
+Finished 3562 of 4384
+Finished 3563 of 4384
+Finished 3564 of 4384
+Finished 3565 of 4384
+Finished 3566 of 4384
+Finished 3567 of 4384
+Finished 3568 of 4384
+Finished 3569 of 4384
+Finished 3570 of 4384
+Finished 3571 of 4384
+Finished 3572 of 4384
+Finished 3573 of 4384
+Finished 3574 of 4384
+Finished 3575 of 4384
+Finished 3576 of 4384
+Finished 3577 of 4384
+Finished 3578 of 4384
+Finished 3579 of 4384
+Finished 3580 of 4384
+Finished 3581 of 4384
+Finished 3582 of 4384
+Finished 3583 of 4384
+Finished 3584 of 4384
+Finished 3585 of 4384
+Finished 3586 of 4384
+Finished 3587 of 4384
+Finished 3588 of 4384
+Finished 3589 of 4384
+Finished 3590 of 4384
+Finished 3591 of 4384
+Finished 3592 of 4384
+Finished 3593 of 4384
+Finished 3594 of 4384
+Finished 3595 of 4384
+Finished 3596 of 4384
+Finished 3597 of 4384
+Finished 3598 of 4384
+Finished 3599 of 4384
+Finished 3600 of 4384
+Finished 3601 of 4384
+Finished 3602 of 4384
+Finished 3603 of 4384
+Finished 3604 of 4384
+Finished 3605 of 4384
+Finished 3606 of 4384
+Finished 3607 of 4384
+Finished 3608 of 4384
+Finished 3609 of 4384
+Finished 3610 of 4384
+Finished 3611 of 4384
+Finished 3612 of 4384
+Finished 3613 of 4384
+Finished 3614 of 4384
+Finished 3615 of 4384
+Finished 3616 of 4384
+Finished 3617 of 4384
+Finished 3618 of 4384
+Finished 3619 of 4384
+Finished 3620 of 4384
+Finished 3621 of 4384
+Finished 3622 of 4384
+Finished 3623 of 4384
+Finished 3624 of 4384
+Finished 3625 of 4384
+Finished 3626 of 4384
+Finished 3627 of 4384
+Finished 3628 of 4384
+Finished 3629 of 4384
+Finished 3630 of 4384
+Finished 3631 of 4384
+Finished 3632 of 4384
+Finished 3633 of 4384
+Finished 3634 of 4384
+Finished 3635 of 4384
+Finished 3636 of 4384
+Finished 3637 of 4384
+Finished 3638 of 4384
+Finished 3639 of 4384
+Finished 3640 of 4384
+Finished 3641 of 4384
+Finished 3642 of 4384
+Finished 3643 of 4384
+Finished 3644 of 4384
+Finished 3645 of 4384
+Finished 3646 of 4384
+Finished 3647 of 4384
+Finished 3648 of 4384
+Finished 3649 of 4384
+Finished 3650 of 4384
+Finished 3651 of 4384
+Finished 3652 of 4384
+Finished 3653 of 4384
+Finished 3654 of 4384
+Finished 3655 of 4384
+Finished 3656 of 4384
+Finished 3657 of 4384
+Finished 3658 of 4384
+Finished 3659 of 4384
+Finished 3660 of 4384
+Finished 3661 of 4384
+Finished 3662 of 4384
+Finished 3663 of 4384
+Finished 3664 of 4384
+Finished 3665 of 4384
+Finished 3666 of 4384
+Finished 3667 of 4384
+Finished 3668 of 4384
+Finished 3669 of 4384
+Finished 3670 of 4384
+Finished 3671 of 4384
+Finished 3672 of 4384
+Finished 3673 of 4384
+Finished 3674 of 4384
+Finished 3675 of 4384
+Finished 3676 of 4384
+Finished 3677 of 4384
+Finished 3678 of 4384
+Finished 3679 of 4384
+Finished 3680 of 4384
+Finished 3681 of 4384
+Finished 3682 of 4384
+Finished 3683 of 4384
+Finished 3684 of 4384
+Finished 3685 of 4384
+Finished 3686 of 4384
+Finished 3687 of 4384
+Finished 3688 of 4384
+Finished 3689 of 4384
+Finished 3690 of 4384
+Finished 3691 of 4384
+Finished 3692 of 4384
+Finished 3693 of 4384
+Finished 3694 of 4384
+Finished 3695 of 4384
+Finished 3696 of 4384
+Finished 3697 of 4384
+Finished 3698 of 4384
+Finished 3699 of 4384
+Finished 3700 of 4384
+Finished 3701 of 4384
+Finished 3702 of 4384
+Finished 3703 of 4384
+Finished 3704 of 4384
+Finished 3705 of 4384
+Finished 3706 of 4384
+Finished 3707 of 4384
+Finished 3708 of 4384
+Finished 3709 of 4384
+Finished 3710 of 4384
+Finished 3711 of 4384
+Finished 3712 of 4384
+Finished 3713 of 4384
+Finished 3714 of 4384
+Finished 3715 of 4384
+Finished 3716 of 4384
+Finished 3717 of 4384
+Finished 3718 of 4384
+Finished 3719 of 4384
+Finished 3720 of 4384
+Finished 3721 of 4384
+Finished 3722 of 4384
+Finished 3723 of 4384
+Finished 3724 of 4384
+Finished 3725 of 4384
+Finished 3726 of 4384
+Finished 3727 of 4384
+Finished 3728 of 4384
+Finished 3729 of 4384
+Finished 3730 of 4384
+Finished 3731 of 4384
+Finished 3732 of 4384
+Finished 3733 of 4384
+Finished 3734 of 4384
+Finished 3735 of 4384
+Finished 3736 of 4384
+Finished 3737 of 4384
+Finished 3738 of 4384
+Finished 3739 of 4384
+Finished 3740 of 4384
+Finished 3741 of 4384
+Finished 3742 of 4384
+Finished 3743 of 4384
+Finished 3744 of 4384
+Finished 3745 of 4384
+Finished 3746 of 4384
+Finished 3747 of 4384
+Finished 3748 of 4384
+Finished 3749 of 4384
+Finished 3750 of 4384
+Finished 3751 of 4384
+Finished 3752 of 4384
+Finished 3753 of 4384
+Finished 3754 of 4384
+Finished 3755 of 4384
+Finished 3756 of 4384
+Finished 3757 of 4384
+Finished 3758 of 4384
+Finished 3759 of 4384
+Finished 3760 of 4384
+Finished 3761 of 4384
+Finished 3762 of 4384
+Finished 3763 of 4384
+Finished 3764 of 4384
+Finished 3765 of 4384
+Finished 3766 of 4384
+Finished 3767 of 4384
+Finished 3768 of 4384
+Finished 3769 of 4384
+Finished 3770 of 4384
+Finished 3771 of 4384
+Finished 3772 of 4384
+Finished 3773 of 4384
+Finished 3774 of 4384
+Finished 3775 of 4384
+Finished 3776 of 4384
+Finished 3777 of 4384
+Finished 3778 of 4384
+Finished 3779 of 4384
+Finished 3780 of 4384
+Finished 3781 of 4384
+Finished 3782 of 4384
+Finished 3783 of 4384
+Finished 3784 of 4384
+Finished 3785 of 4384
+Finished 3786 of 4384
+Finished 3787 of 4384
+Finished 3788 of 4384
+Finished 3789 of 4384
+Finished 3790 of 4384
+Finished 3791 of 4384
+Finished 3792 of 4384
+Finished 3793 of 4384
+Finished 3794 of 4384
+Finished 3795 of 4384
+Finished 3796 of 4384
+Finished 3797 of 4384
+Finished 3798 of 4384
+Finished 3799 of 4384
+Finished 3800 of 4384
+Finished 3801 of 4384
+Finished 3802 of 4384
+Finished 3803 of 4384
+Finished 3804 of 4384
+Finished 3805 of 4384
+Finished 3806 of 4384
+Finished 3807 of 4384
+Finished 3808 of 4384
+Finished 3809 of 4384
+Finished 3810 of 4384
+Finished 3811 of 4384
+Finished 3812 of 4384
+Finished 3813 of 4384
+Finished 3814 of 4384
+Finished 3815 of 4384
+Finished 3816 of 4384
+Finished 3817 of 4384
+Finished 3818 of 4384
+Finished 3819 of 4384
+Finished 3820 of 4384
+Finished 3821 of 4384
+Finished 3822 of 4384
+Finished 3823 of 4384
+Finished 3824 of 4384
+Finished 3825 of 4384
+Finished 3826 of 4384
+Finished 3827 of 4384
+Finished 3828 of 4384
+Finished 3829 of 4384
+Finished 3830 of 4384
+Finished 3831 of 4384
+Finished 3832 of 4384
+Finished 3833 of 4384
+Finished 3834 of 4384
+Finished 3835 of 4384
+Finished 3836 of 4384
+Finished 3837 of 4384
+Finished 3838 of 4384
+Finished 3839 of 4384
+Finished 3840 of 4384
+Finished 3841 of 4384
+Finished 3842 of 4384
+Finished 3843 of 4384
+Finished 3844 of 4384
+Finished 3845 of 4384
+Finished 3846 of 4384
+Finished 3847 of 4384
+Finished 3848 of 4384
+Finished 3849 of 4384
+Finished 3850 of 4384
+Finished 3851 of 4384
+Finished 3852 of 4384
+Finished 3853 of 4384
+Finished 3854 of 4384
+Finished 3855 of 4384
+Finished 3856 of 4384
+Finished 3857 of 4384
+Finished 3858 of 4384
+Finished 3859 of 4384
+Finished 3860 of 4384
+Finished 3861 of 4384
+Finished 3862 of 4384
+Finished 3863 of 4384
+Finished 3864 of 4384
+Finished 3865 of 4384
+Finished 3866 of 4384
+Finished 3867 of 4384
+Finished 3868 of 4384
+Finished 3869 of 4384
+Finished 3870 of 4384
+Finished 3871 of 4384
+Finished 3872 of 4384
+Finished 3873 of 4384
+Finished 3874 of 4384
+Finished 3875 of 4384
+Finished 3876 of 4384
+Finished 3877 of 4384
+Finished 3878 of 4384
+Finished 3879 of 4384
+Finished 3880 of 4384
+Finished 3881 of 4384
+Finished 3882 of 4384
+Finished 3883 of 4384
+Finished 3884 of 4384
+Finished 3885 of 4384
+Finished 3886 of 4384
+Finished 3887 of 4384
+Finished 3888 of 4384
+Finished 3889 of 4384
+Finished 3890 of 4384
+Finished 3891 of 4384
+Finished 3892 of 4384
+Finished 3893 of 4384
+Finished 3894 of 4384
+Finished 3895 of 4384
+Finished 3896 of 4384
+Finished 3897 of 4384
+Finished 3898 of 4384
+Finished 3899 of 4384
+Finished 3900 of 4384
+Finished 3901 of 4384
+Finished 3902 of 4384
+Finished 3903 of 4384
+Finished 3904 of 4384
+Finished 3905 of 4384
+Finished 3906 of 4384
+Finished 3907 of 4384
+Finished 3908 of 4384
+Finished 3909 of 4384
+Finished 3910 of 4384
+Finished 3911 of 4384
+Finished 3912 of 4384
+Finished 3913 of 4384
+Finished 3914 of 4384
+Finished 3915 of 4384
+Finished 3916 of 4384
+Finished 3917 of 4384
+Finished 3918 of 4384
+Finished 3919 of 4384
+Finished 3920 of 4384
+Finished 3921 of 4384
+Finished 3922 of 4384
+Finished 3923 of 4384
+Finished 3924 of 4384
+Finished 3925 of 4384
+Finished 3926 of 4384
+Finished 3927 of 4384
+Finished 3928 of 4384
+Finished 3929 of 4384
+Finished 3930 of 4384
+Finished 3931 of 4384
+Finished 3932 of 4384
+Finished 3933 of 4384
+Finished 3934 of 4384
+Finished 3935 of 4384
+Finished 3936 of 4384
+Finished 3937 of 4384
+Finished 3938 of 4384
+Finished 3939 of 4384
+Finished 3940 of 4384
+Finished 3941 of 4384
+Finished 3942 of 4384
+Finished 3943 of 4384
+Finished 3944 of 4384
+Finished 3945 of 4384
+Finished 3946 of 4384
+Finished 3947 of 4384
+Finished 3948 of 4384
+Finished 3949 of 4384
+Finished 3950 of 4384
+Finished 3951 of 4384
+Finished 3952 of 4384
+Finished 3953 of 4384
+Finished 3954 of 4384
+Finished 3955 of 4384
+Finished 3956 of 4384
+Finished 3957 of 4384
+Finished 3958 of 4384
+Finished 3959 of 4384
+Finished 3960 of 4384
+Finished 3961 of 4384
+Finished 3962 of 4384
+Finished 3963 of 4384
+Finished 3964 of 4384
+Finished 3965 of 4384
+Finished 3966 of 4384
+Finished 3967 of 4384
+Finished 3968 of 4384
+Finished 3969 of 4384
+Finished 3970 of 4384
+Finished 3971 of 4384
+Finished 3972 of 4384
+Finished 3973 of 4384
+Finished 3974 of 4384
+Finished 3975 of 4384
+Finished 3976 of 4384
+Finished 3977 of 4384
+Finished 3978 of 4384
+Finished 3979 of 4384
+Finished 3980 of 4384
+Finished 3981 of 4384
+Finished 3982 of 4384
+Finished 3983 of 4384
+Finished 3984 of 4384
+Finished 3985 of 4384
+Finished 3986 of 4384
+Finished 3987 of 4384
+Finished 3988 of 4384
+Finished 3989 of 4384
+Finished 3990 of 4384
+Finished 3991 of 4384
+Finished 3992 of 4384
+Finished 3993 of 4384
+Finished 3994 of 4384
+Finished 3995 of 4384
+Finished 3996 of 4384
+Finished 3997 of 4384
+Finished 3998 of 4384
+Finished 3999 of 4384
+Finished 4000 of 4384
+Finished 4001 of 4384
+Finished 4002 of 4384
+Finished 4003 of 4384
+Finished 4004 of 4384
+Finished 4005 of 4384
+Finished 4006 of 4384
+Finished 4007 of 4384
+Finished 4008 of 4384
+Finished 4009 of 4384
+Finished 4010 of 4384
+Finished 4011 of 4384
+Finished 4012 of 4384
+Finished 4013 of 4384
+Finished 4014 of 4384
+Finished 4015 of 4384
+Finished 4016 of 4384
+Finished 4017 of 4384
+Finished 4018 of 4384
+Finished 4019 of 4384
+Finished 4020 of 4384
+Finished 4021 of 4384
+Finished 4022 of 4384
+Finished 4023 of 4384
+Finished 4024 of 4384
+Finished 4025 of 4384
+Finished 4026 of 4384
+Finished 4027 of 4384
+Finished 4028 of 4384
+Finished 4029 of 4384
+Finished 4030 of 4384
+Finished 4031 of 4384
+Finished 4032 of 4384
+Finished 4033 of 4384
+Finished 4034 of 4384
+Finished 4035 of 4384
+Finished 4036 of 4384
+Finished 4037 of 4384
+Finished 4038 of 4384
+Finished 4039 of 4384
+Finished 4040 of 4384
+Finished 4041 of 4384
+Finished 4042 of 4384
+Finished 4043 of 4384
+Finished 4044 of 4384
+Finished 4045 of 4384
+Finished 4046 of 4384
+Finished 4047 of 4384
+Finished 4048 of 4384
+Finished 4049 of 4384
+Finished 4050 of 4384
+Finished 4051 of 4384
+Finished 4052 of 4384
+Finished 4053 of 4384
+Finished 4054 of 4384
+Finished 4055 of 4384
+Finished 4056 of 4384
+Finished 4057 of 4384
+Finished 4058 of 4384
+Finished 4059 of 4384
+Finished 4060 of 4384
+Finished 4061 of 4384
+Finished 4062 of 4384
+Finished 4063 of 4384
+Finished 4064 of 4384
+Finished 4065 of 4384
+Finished 4066 of 4384
+Finished 4067 of 4384
+Finished 4068 of 4384
+Finished 4069 of 4384
+Finished 4070 of 4384
+Finished 4071 of 4384
+Finished 4072 of 4384
+Finished 4073 of 4384
+Finished 4074 of 4384
+Finished 4075 of 4384
+Finished 4076 of 4384
+Finished 4077 of 4384
+Finished 4078 of 4384
+Finished 4079 of 4384
+Finished 4080 of 4384
+Finished 4081 of 4384
+Finished 4082 of 4384
+Finished 4083 of 4384
+Finished 4084 of 4384
+Finished 4085 of 4384
+Finished 4086 of 4384
+Finished 4087 of 4384
+Finished 4088 of 4384
+Finished 4089 of 4384
+Finished 4090 of 4384
+Finished 4091 of 4384
+Finished 4092 of 4384
+Finished 4093 of 4384
+Finished 4094 of 4384
+Finished 4095 of 4384
+Finished 4096 of 4384
+Finished 4097 of 4384
+Finished 4098 of 4384
+Finished 4099 of 4384
+Finished 4100 of 4384
+Finished 4101 of 4384
+Finished 4102 of 4384
+Finished 4103 of 4384
+Finished 4104 of 4384
+Finished 4105 of 4384
+Finished 4106 of 4384
+Finished 4107 of 4384
+Finished 4108 of 4384
+Finished 4109 of 4384
+Finished 4110 of 4384
+Finished 4111 of 4384
+Finished 4112 of 4384
+Finished 4113 of 4384
+Finished 4114 of 4384
+Finished 4115 of 4384
+Finished 4116 of 4384
+Finished 4117 of 4384
+Finished 4118 of 4384
+Finished 4119 of 4384
+Finished 4120 of 4384
+Finished 4121 of 4384
+Finished 4122 of 4384
+Finished 4123 of 4384
+Finished 4124 of 4384
+Finished 4125 of 4384
+Finished 4126 of 4384
+Finished 4127 of 4384
+Finished 4128 of 4384
+Finished 4129 of 4384
+Finished 4130 of 4384
+Finished 4131 of 4384
+Finished 4132 of 4384
+Finished 4133 of 4384
+Finished 4134 of 4384
+Finished 4135 of 4384
+Finished 4136 of 4384
+Finished 4137 of 4384
+Finished 4138 of 4384
+Finished 4139 of 4384
+Finished 4140 of 4384
+Finished 4141 of 4384
+Finished 4142 of 4384
+Finished 4143 of 4384
+Finished 4144 of 4384
+Finished 4145 of 4384
+Finished 4146 of 4384
+Finished 4147 of 4384
+Finished 4148 of 4384
+Finished 4149 of 4384
+Finished 4150 of 4384
+Finished 4151 of 4384
+Finished 4152 of 4384
+Finished 4153 of 4384
+Finished 4154 of 4384
+Finished 4155 of 4384
+Finished 4156 of 4384
+Finished 4157 of 4384
+Finished 4158 of 4384
+Finished 4159 of 4384
+Finished 4160 of 4384
+Finished 4161 of 4384
+Finished 4162 of 4384
+Finished 4163 of 4384
+Finished 4164 of 4384
+Finished 4165 of 4384
+Finished 4166 of 4384
+Finished 4167 of 4384
+Finished 4168 of 4384
+Finished 4169 of 4384
+Finished 4170 of 4384
+Finished 4171 of 4384
+Finished 4172 of 4384
+Finished 4173 of 4384
+Finished 4174 of 4384
+Finished 4175 of 4384
+Finished 4176 of 4384
+Finished 4177 of 4384
+Finished 4178 of 4384
+Finished 4179 of 4384
+Finished 4180 of 4384
+Finished 4181 of 4384
+Finished 4182 of 4384
+Finished 4183 of 4384
+Finished 4184 of 4384
+Finished 4185 of 4384
+Finished 4186 of 4384
+Finished 4187 of 4384
+Finished 4188 of 4384
+Finished 4189 of 4384
+Finished 4190 of 4384
+Finished 4191 of 4384
+Finished 4192 of 4384
+Finished 4193 of 4384
+Finished 4194 of 4384
+Finished 4195 of 4384
+Finished 4196 of 4384
+Finished 4197 of 4384
+Finished 4198 of 4384
+Finished 4199 of 4384
+Finished 4200 of 4384
+Finished 4201 of 4384
+Finished 4202 of 4384
+Finished 4203 of 4384
+Finished 4204 of 4384
+Finished 4205 of 4384
+Finished 4206 of 4384
+Finished 4207 of 4384
+Finished 4208 of 4384
+Finished 4209 of 4384
+Finished 4210 of 4384
+Finished 4211 of 4384
+Finished 4212 of 4384
+Finished 4213 of 4384
+Finished 4214 of 4384
+Finished 4215 of 4384
+Finished 4216 of 4384
+Finished 4217 of 4384
+Finished 4218 of 4384
+Finished 4219 of 4384
+Finished 4220 of 4384
+Finished 4221 of 4384
+Finished 4222 of 4384
+Finished 4223 of 4384
+Finished 4224 of 4384
+Finished 4225 of 4384
+Finished 4226 of 4384
+Finished 4227 of 4384
+Finished 4228 of 4384
+Finished 4229 of 4384
+Finished 4230 of 4384
+Finished 4231 of 4384
+Finished 4232 of 4384
+Finished 4233 of 4384
+Finished 4234 of 4384
+Finished 4235 of 4384
+Finished 4236 of 4384
+Finished 4237 of 4384
+Finished 4238 of 4384
+Finished 4239 of 4384
+Finished 4240 of 4384
+Finished 4241 of 4384
+Finished 4242 of 4384
+Finished 4243 of 4384
+Finished 4244 of 4384
+Finished 4245 of 4384
+Finished 4246 of 4384
+Finished 4247 of 4384
+Finished 4248 of 4384
+Finished 4249 of 4384
+Finished 4250 of 4384
+Finished 4251 of 4384
+Finished 4252 of 4384
+Finished 4253 of 4384
+Finished 4254 of 4384
+Finished 4255 of 4384
+Finished 4256 of 4384
+Finished 4257 of 4384
+Finished 4258 of 4384
+Finished 4259 of 4384
+Finished 4260 of 4384
+Finished 4261 of 4384
+Finished 4262 of 4384
+Finished 4263 of 4384
+Finished 4264 of 4384
+Finished 4265 of 4384
+Finished 4266 of 4384
+Finished 4267 of 4384
+Finished 4268 of 4384
+Finished 4269 of 4384
+Finished 4270 of 4384
+Finished 4271 of 4384
+Finished 4272 of 4384
+Finished 4273 of 4384
+Finished 4274 of 4384
+Finished 4275 of 4384
+Finished 4276 of 4384
+Finished 4277 of 4384
+Finished 4278 of 4384
+Finished 4279 of 4384
+Finished 4280 of 4384
+Finished 4281 of 4384
+Finished 4282 of 4384
+Finished 4283 of 4384
+Finished 4284 of 4384
+Finished 4285 of 4384
+Finished 4286 of 4384
+Finished 4287 of 4384
+Finished 4288 of 4384
+Finished 4289 of 4384
+Finished 4290 of 4384
+Finished 4291 of 4384
+Finished 4292 of 4384
+Finished 4293 of 4384
+Finished 4294 of 4384
+Finished 4295 of 4384
+Finished 4296 of 4384
+Finished 4297 of 4384
+Finished 4298 of 4384
+Finished 4299 of 4384
+Finished 4300 of 4384
+Finished 4301 of 4384
+Finished 4302 of 4384
+Finished 4303 of 4384
+Finished 4304 of 4384
+Finished 4305 of 4384
+Finished 4306 of 4384
+Finished 4307 of 4384
+Finished 4308 of 4384
+Finished 4309 of 4384
+Finished 4310 of 4384
+Finished 4311 of 4384
+Finished 4312 of 4384
+Finished 4313 of 4384
+Finished 4314 of 4384
+Finished 4315 of 4384
+Finished 4316 of 4384
+Finished 4317 of 4384
+Finished 4318 of 4384
+Finished 4319 of 4384
+Finished 4320 of 4384
+Finished 4321 of 4384
+Finished 4322 of 4384
+Finished 4323 of 4384
+Finished 4324 of 4384
+Finished 4325 of 4384
+Finished 4326 of 4384
+Finished 4327 of 4384
+Finished 4328 of 4384
+Finished 4329 of 4384
+Finished 4330 of 4384
+Finished 4331 of 4384
+Finished 4332 of 4384
+Finished 4333 of 4384
+Finished 4334 of 4384
+Finished 4335 of 4384
+Finished 4336 of 4384
+Finished 4337 of 4384
+Finished 4338 of 4384
+Finished 4339 of 4384
+Finished 4340 of 4384
+Finished 4341 of 4384
+Finished 4342 of 4384
+Finished 4343 of 4384
+Finished 4344 of 4384
+Finished 4345 of 4384
+Finished 4346 of 4384
+Finished 4347 of 4384
+Finished 4348 of 4384
+Finished 4349 of 4384
+Finished 4350 of 4384
+Finished 4351 of 4384
+Finished 4352 of 4384
+Finished 4353 of 4384
+Finished 4354 of 4384
+Finished 4355 of 4384
+Finished 4356 of 4384
+Finished 4357 of 4384
+Finished 4358 of 4384
+Finished 4359 of 4384
+Finished 4360 of 4384
+Finished 4361 of 4384
+Finished 4362 of 4384
+Finished 4363 of 4384
+Finished 4364 of 4384
+Finished 4365 of 4384
+Finished 4366 of 4384
+Finished 4367 of 4384
+Finished 4368 of 4384
+Finished 4369 of 4384
+Finished 4370 of 4384
+Finished 4371 of 4384
+Finished 4372 of 4384
+Finished 4373 of 4384
+Finished 4374 of 4384
+Finished 4375 of 4384
+Finished 4376 of 4384
+Finished 4377 of 4384
+Finished 4378 of 4384
+Finished 4379 of 4384
+Finished 4380 of 4384
+Finished 4381 of 4384
+Finished 4382 of 4384
+Finished 4383 of 4384
+Finished 4384 of 4384</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>points2<span class="ot">&lt;-</span><span class="fu">data.frame</span>(<span class="at">species=</span>pointsict<span class="sc">$</span>sp,<span class="at">decimallongitude=</span>pointsict<span class="sc">$</span>lon,<span class="at">decimallatitude=</span>pointsict<span class="sc">$</span>lat)</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>sparspam<span class="ot">&lt;-</span><span class="fu">points2comm</span>(points2,<span class="at">res=</span><span class="dv">1</span>)</span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>sparspam1<span class="ot">&lt;-</span>sparspam<span class="sc">$</span>comm_dat</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>pe<span class="ot">&lt;-</span><span class="fu">phylo_endemism</span>(sparspam1,phylo)</span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>pe_merged<span class="ot">&lt;-</span><span class="fu">merge</span>(sparspam<span class="sc">$</span>map,<span class="fu">data.frame</span>(<span class="at">grids=</span><span class="fu">names</span>(pe),<span class="at">pe=</span>pe),<span class="at">by=</span><span class="st">"grids"</span>)</span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>pe_merged<span class="ot">&lt;-</span>pe_merged[<span class="sc">!</span><span class="fu">is.na</span>(pe_merged<span class="sc">$</span>pe),]</span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(pe_merged,<span class="st">"pe"</span>,<span class="at">border=</span><span class="cn">NA</span>,<span class="at">type=</span><span class="st">"continuous"</span>,<span class="at">col =</span> <span class="fu">hcl.colors</span>(<span class="at">n=</span><span class="dv">20</span>, <span class="at">palette =</span> <span class="st">"Blue-Red 3"</span>, <span class="at">rev=</span><span class="cn">FALSE</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="nri" class="level2">
+<h2 class="anchored" data-anchor-id="nri">NRI</h2>
+<p>para calcular NRI, volvemos a hacer uso de picante.</p>
+<p>Calculamos primero el ses.mpd, esto requiere una matriz de distancias filogeneticas</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>phylodist<span class="ot">&lt;-</span><span class="fu">cophenetic</span>(phylo)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Ahora si, calculamos</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>smpd<span class="ot">&lt;-</span><span class="fu">ses.mpd</span>(ictPAM<span class="sc">$</span>Presence_and_Absence_Matrix[,<span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)],phylodist,<span class="at">iterations =</span> <span class="dv">1000</span>,<span class="at">null.model =</span> <span class="st">"taxa.labels"</span>)</span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(smpd)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  ntaxa mpd.obs mpd.rand.mean mpd.rand.sd mpd.obs.rank mpd.obs.z mpd.obs.p runs
+1     1      NA           NaN          NA           NA        NA        NA  999
+2     1      NA           NaN          NA           NA        NA        NA  999
+3     1      NA           NaN          NA           NA        NA        NA  999
+4     1      NA           NaN          NA           NA        NA        NA  999
+5     1      NA           NaN          NA           NA        NA        NA  999
+6     1      NA           NaN          NA           NA        NA        NA  999</code></pre>
+</div>
+</div>
+<p>Para calcular nri, debemos multiplicar el mpd.obs.z * -1</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>NRIct<span class="ot">&lt;-</span>smpd<span class="sc">$</span>mpd.obs.z<span class="sc">*-</span><span class="dv">1</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a>NRIictcr<span class="ot">&lt;-</span><span class="fu">data.frame</span>(ictcoords,NRIct)</span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(NRIictcr)<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="st">"x"</span>,<span class="st">"y"</span>,<span class="st">"NRI"</span>)</span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(NRIictcr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          x        y NRI
+1 -147.6927 69.51782  NA
+2 -146.6927 69.51782  NA
+3 -145.6927 69.51782  NA
+4 -144.6927 69.51782  NA
+5 -133.6927 69.51782  NA
+6 -132.6927 69.51782  NA</code></pre>
+</div>
+</div>
+</section>
+<section id="nri-1" class="level2">
+<h2 class="anchored" data-anchor-id="nri-1">NRI</h2>
+<p>Los NA es de sitios donde sólo hay una especie</p>
+<p>Mapeemos</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>nrirast<span class="ot">&lt;-</span><span class="fu">rast</span>(NRIictcr,<span class="at">crs=</span><span class="fu">crs</span>(ictPAM<span class="sc">$</span>Richness_Raster))</span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>nrirdf<span class="ot">&lt;-</span><span class="fu">as.data.frame</span>(nrirast,<span class="at">xy=</span>T)</span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span>nrirdf)<span class="sc">+</span></span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_raster</span>(<span class="fu">aes</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">fill=</span>NRI))<span class="sc">+</span></span>
+<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_b</span>()<span class="sc">+</span></span>
+<span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_void</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="edge" class="level2">
+<h2 class="anchored" data-anchor-id="edge">EDGE</h2>
+<p>phyloregion también puede calcular EDGE, para esto necesitamos las categorías de reisgo para las especies</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a>iucnlist<span class="ot">&lt;-</span><span class="fu">read.csv</span>(<span class="st">"../data/iucnlist.csv"</span>,<span class="at">header=</span>T)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Ahora podemos usar la función de EDGE de Phyloregion</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>spedge<span class="ot">&lt;-</span><span class="fu">EDGE</span>(iucnlist,phylo,<span class="at">Redlist =</span> <span class="st">"IUCN"</span>,<span class="at">species =</span> <span class="st">"Species"</span>)</span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>edgdf<span class="ot">&lt;-</span><span class="fu">data.frame</span>(spedge)</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a>iucnmap<span class="ot">&lt;-</span><span class="fu">lets.maplizer</span>(<span class="at">x=</span>ictPAM,<span class="at">y=</span>edgdf<span class="sc">$</span>spedge,<span class="at">z=</span><span class="fu">row.names</span>(edgdf),<span class="at">ras=</span>T,<span class="at">func=</span>mean)</span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(iucnmap<span class="sc">$</span>Raster)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Metrics_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
