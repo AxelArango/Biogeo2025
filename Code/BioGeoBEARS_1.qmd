@@ -1,0 +1,1359 @@
+---
+title: "BioGeoBEARS"
+format: html
+editor: visual
+---
+
+Cargamos paquetes a utilizar
+
+```{r}
+library(ape)
+library(optimx)   # optimx  para optimización
+library(GenSA)    # GenSA para optimización, 
+library(rexpokit)
+library(cladoRcpp)
+library(snow)     # (para multicore)
+library(parallel)
+library(BioGeoBEARS)
+```
+
+creamos un directorio especial para biogeobears
+
+```{r}
+dir.create("BioGeoBEARS")
+```
+
+cargamos nuestros datos
+
+primero los datos filogenéticos
+
+```{r}
+trfn = "../Data/treevirens.tre"#tree data
+tr <- read.tree(trfn)
+tr
+```
+
+ahora los datos geográficos
+
+```{r}
+geogfn ="../Data/phylip_k6.txt"
+
+```
+
+de los datos geográficos extramos los rangos de las especies
+
+```{r}
+tipranges <- getranges_from_LagrangePHYLIP(lgdata_fn=geogfn)
+tipranges
+
+```
+
+creamos las áreas
+
+```{r}
+max_range_size = max(rowSums(dfnums_to_numeric(tipranges@df)))
+#número máximo de áreas que ocupan las especies, puede ser menor que el número total de áreas, pero nunca mayor
+numstates_from_numareas(numareas=length(dfnums_to_numeric(tipranges@df)[1,]), maxareas=max(rowSums(dfnums_to_numeric(tipranges@df))), include_null_range=TRUE)# podemos checar el número máximo de estados del número de área
+```
+
+construimos un modelo default (DEC) con una matriz de distancia
+
+todo el modelo esta contenido en el objeto BioGeoBEARS_run_object
+
+```{r}
+#iniciamos el modelo default
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+#le damos a biogeobears la localización de la filogenía
+BioGeoBEARS_run_object$trfn = trfn
+#le damos a biogeobears la localización de los datos geográficos
+BioGeoBEARS_run_object$geogfn = geogfn
+#metemos el rango maximo
+BioGeoBEARS_run_object$max_range_size = max_range_size
+#Definimos el minimo de longitud de rama para tratar las puntas como antecesores directos (sin eventos de especiación)
+BioGeoBEARS_run_object$min_branchlength = 0.000001  
+#Eliminamos el rango nulo (esto es requerido para un modelo DEC)
+BioGeoBEARS_run_object$include_null_range = F
+```
+
+Agregamos la matriz de distancia
+
+```{r}
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+```
+
+Ahora opciones de optimización
+
+```{r}
+BioGeoBEARS_run_object$on_NaN_error = -1e50    # regresa valores muy bajos de -lnl como este valor en vez de NaN
+BioGeoBEARS_run_object$speedup = TRUE          # Facilita la busqueda de -lnl
+BioGeoBEARS_run_object$use_optimx = TRUE    # para elegir entre genSA y optimx
+BioGeoBEARS_run_object$num_cores_to_use = 4 #número de cores a utilizar en la computadora
+BioGeoBEARS_run_object$force_sparse = FALSE# desactivar el sparse, pues causa errores y no mejora la busqueda
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object) #checa que todos las matrices estén acopladas 
+
+```
+
+Parametros default para busqueda
+
+```{r}
+
+BioGeoBEARS_run_object$return_condlikes_table = TRUE #regresa las tablas de likelihood condicional
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE    # obtener los estados ancestrales del mejor modelo
+#
+BioGeoBEARS_run_object
+# Agregamos el objeto del modelo
+BioGeoBEARS_run_object$BioGeoBEARS_model_object
+
+# checamos la tabla de parametros para el modelo 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table
+
+```
+
+finalmente coremos un check final para verificar que el objeto no tenga errores
+
+```{r}
+# 
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+```
+
+Ahora a correr el modelo dec
+
+```{r}
+# Para correr el modelo runslow=T, para cargar un modelo guardado runslow=F 
+# load the saved result.
+runslow = TRUE
+resfn = "BioGeoBEARS/DEC_k6.RData"
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDEC = res
+} else {
+  load(resfn)
+  resDEC = res
+}
+```
+
+Tenemos nuestro primer modelo, veamoslo
+
+```{r}
+resDEC
+```
+
+Para hacer un modelo DEC +J, se sugiere hacer un modelo anidado para no inflar el likelihood, utilizando los valores del modelo DEC como valores iniciales.
+
+```{r}
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE
+#
+# Obtenemos los valores de ml del modelo DEC
+dstart = resDEC$outputs@params_table["d","est"]
+estart = resDEC$outputs@params_table["e","est"]
+jstart = 0.0001
+
+# Ponemos los valores iniciales para d y e usando el modelo DEC
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = estart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = estart
+
+# Agregamos J como un parametro libre
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = jstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = jstart
+
+# Checamos
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+```
+
+y corremos
+
+```{r}
+resfn = "BioGeoBEARS/DEC_k6j.RData"
+runslow = TRUE
+if (runslow)
+{
+  
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  
+  resDECj = res
+} else {
+  load(resfn)
+  resDECj = res
+}
+```
+
+Ahora configuramos el objeto BioGeoBEARS de la misma manera que el dec
+
+```{r}
+#Divalike
+# Run DIVALIKE
+#######################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    
+BioGeoBEARS_run_object$include_null_range = TRUE    
+BioGeoBEARS_run_object$on_NaN_error = -1e50    #
+BioGeoBEARS_run_object$speedup = TRUE      
+BioGeoBEARS_run_object$use_optimx = TRUE    #
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE
+
+
+
+```
+
+Colocamos la matriz de distancia y la verificamos
+
+```{r}
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE 
+```
+
+Configuramos modelo DIVA
+
+```{r}
+# 
+# Remover subset-sympatry
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "2-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "ysv*1/2"
+
+# Permitir vicarianza clasica; todos los eventos son equiprobables
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","init"] = 0.5
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","est"] = 0.5
+
+```
+
+Checamos el objeto
+
+```{r}
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+
+```
+
+```{r}
+runslow = TRUE
+resfn = "BioGeoBEARS/DIVA_k6.RData"
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDIVALIKE = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDIVALIKE = res
+}
+```
+
+Ahora configuramos un modelo DIVA+j
+
+```{r}
+
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    
+BioGeoBEARS_run_object$include_null_range = TRUE  
+BioGeoBEARS_run_object$on_NaN_error = -1e50    
+BioGeoBEARS_run_object$speedup = TRUE     
+BioGeoBEARS_run_object$use_optimx = TRUE   
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE  
+```
+
+Configuramos el modelo +j (Anidado)
+
+```{r}
+
+dstart = resDIVALIKE$outputs@params_table["d","est"]
+estart = resDIVALIKE$outputs@params_table["e","est"]
+jstart = 0.0001
+
+# valores iniciales segun modelo DIVA
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = estart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = estart
+
+# Remover subset-simpatry
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "2-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "ysv*1/2"
+
+# Eventos vicatianza equiprobables
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","init"] = 0.5
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","est"] = 0.5
+
+# Agregar el jump dispersal
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = jstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = jstart
+
+# Bajo diva, el maximo de +j debe ser 2 y no 3 como en DEC
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","min"] = 0.00001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","max"] = 1.99999
+```
+
+Checamos
+
+```{r}
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+```
+
+Corremos
+
+```{r}
+resfn = "BioGeoBEARS/DIVAj_k6.RData"
+runslow = TRUE
+if (runslow)
+{
+
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  
+  resDIVALIKEj = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDIVALIKEj = res
+}
+```
+
+Para el modelo BAYAREA, primero configuramos el objeto BioGeoBEARS
+
+```{r}
+
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    
+BioGeoBEARS_run_object$include_null_range = F
+BioGeoBEARS_run_object$on_NaN_error = -1e50
+BioGeoBEARS_run_object$speedup = TRUE 
+BioGeoBEARS_run_object$use_optimx = TRUE  
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE    
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE    
+
+
+```
+
+Configuramos los parametros para el modelo BAYAREA
+
+```{r}
+# Sin subset sympatry
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+# Sin vicariance
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","est"] = 0.0
+
+
+#  Ajustar el agrupamiento de parametros de los modelos
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "1-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/1"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "1-j"
+
+# Solo eventos de copia de rango/simpatria (y) son permitidos, copiando exactamente el rango de los decendientes al mismo tamaño que el antecesor
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","init"] = 0.9999
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","est"] = 0.9999
+
+```
+
+Checar los inputs
+
+```{r}
+
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+
+```
+
+Correr
+
+```{r}
+runslow = TRUE
+resfn = "BioGeoBEARS/BAYAREA_k6.RData"
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resBAYAREALIKE = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resBAYAREALIKE = res
+}
+```
+
+Ahora configuramos el modelo +j
+
+```{r}
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    
+BioGeoBEARS_run_object$include_null_range = F    
+
+BioGeoBEARS_run_object$on_NaN_error = -1e50    
+BioGeoBEARS_run_object$speedup = TRUE          
+BioGeoBEARS_run_object$use_optimx = "GenSA"
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE    
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE
+
+```
+
+Configuramos los parametros
+
+```{r}
+#parametros heredados del modelo bayarea
+dstart = resBAYAREALIKE$outputs@params_table["d","est"]
+estart = resBAYAREALIKE$outputs@params_table["e","est"]
+jstart = 0.0001
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = estart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = estart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+# Quitamos la vicarianza
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","est"] = 0.0
+
+# Permitimos el Jump dispersal)
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = jstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = jstart
+
+# Bajo BAYAREA, el maximo de J debe ser 1
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","max"] = 0.99999
+
+# Ajustamos el linkage
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "1-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/1"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "1-j"
+
+# Sólo copia de rango
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","init"] = 0.9999
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","est"] = 0.9999
+
+# modificamos ligeramente para cada paramétro, no hacerlo puede causar problemas
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","min"] = 0.0000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","max"] = 4.9999999
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","min"] = 0.0000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","max"] = 4.9999999
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","min"] = 0.00001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","max"] = 0.99999
+
+```
+
+Checamos
+
+```{r}
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+
+```
+
+Corremos
+
+```{r}
+resfn = "BioGeoBEARS/BAYAREAj_k6.RData"
+runslow = TRUE
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  
+  resBAYAREALIKEj = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resBAYAREALIKEj = res
+}
+```
+
+Una vez que los modelos los comparamos, primero entre la misma clase de modelos y después entre modelos
+
+Primero creamos tablas vacías
+
+```{r}
+restable = NULL
+teststable = NULL
+```
+
+Para DEC vs DEC+j
+
+```{r}
+#Extraemos el log likelihood
+LnL_2 = get_LnL_from_BioGeoBEARS_results_object(resDEC)
+LnL_1 = get_LnL_from_BioGeoBEARS_results_object(resDECj)
+#Diferentes numero de parametros dependiendo del modelo
+numparams1 = 3
+numparams2 = 2
+#extraemos los stats
+stats = AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
+stats
+```
+
+Ahora comparamos usando un test de likelihood ratio
+
+```{r}
+
+res2 = extract_params_from_BioGeoBEARS_results_object(results_object=resDEC, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+
+res1 = extract_params_from_BioGeoBEARS_results_object(results_object=resDECj, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+
+# La hipotesis nula para el test es que los dos modelos tienen el mismo likelihood en los datas. Ver: Brian O'Meara's webpage: http://www.brianomeara.info/tutorials/aic
+
+rbind(res2, res1)
+tmp_tests = conditional_format_table(stats)
+
+restable = rbind(restable, res2, res1)
+teststable = rbind(teststable, tmp_tests)
+```
+
+Lo mismo para DIVA
+
+```{r}
+
+
+LnL_2 = get_LnL_from_BioGeoBEARS_results_object(resDIVALIKE)
+LnL_1 = get_LnL_from_BioGeoBEARS_results_object(resDIVALIKEj)
+
+numparams1 = 3
+numparams2 = 2
+stats = AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
+stats
+
+#LTR
+res2 = extract_params_from_BioGeoBEARS_results_object(results_object=resDIVALIKE, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+res1 = extract_params_from_BioGeoBEARS_results_object(results_object=resDIVALIKEj, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+
+rbind(res2, res1)
+conditional_format_table(stats)
+
+tmp_tests = conditional_format_table(stats)
+
+restable = rbind(restable, res2, res1)
+teststable = rbind(teststable, tmp_tests)
+```
+
+Del BAYAREA
+
+```{r}
+LnL_2 = get_LnL_from_BioGeoBEARS_results_object(resBAYAREALIKE)
+LnL_1 = get_LnL_from_BioGeoBEARS_results_object(resBAYAREALIKEj)
+
+numparams1 = 3
+numparams2 = 2
+stats = AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
+stats
+
+res2 = extract_params_from_BioGeoBEARS_results_object(results_object=resBAYAREALIKE, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+#LTR
+res1 = extract_params_from_BioGeoBEARS_results_object(results_object=resBAYAREALIKEj, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+
+rbind(res2, res1)
+conditional_format_table(stats)
+
+tmp_tests = conditional_format_table(stats)
+
+restable = rbind(restable, res2, res1)
+teststable = rbind(teststable, tmp_tests)
+```
+
+Ensamblar los reslutados
+
+```{r}
+teststable$alt = c("DEC+J", "DIVALIKE+J", "BAYAREALIKE+J")
+teststable$null = c("DEC", "DIVALIKE", "BAYAREALIKE")
+row.names(restable) = c("DEC", "DEC+J", "DIVALIKE", "DIVALIKE+J", "BAYAREALIKE", "BAYAREALIKE+J")
+restable = put_jcol_after_ecol(restable)
+restable
+
+```
+
+Veamos los resultados
+
+```{r}
+restable
+teststable
+```
+
+Guardamos los resultados para después
+
+```{r}
+# Loads to "restable"
+save(restable, file="BioGeoBEARS/restable_v1.Rdata")
+load(file="BioGeoBEARS/restable_v1.Rdata")
+
+# Loads to "teststable"
+save(teststable, file="BioGeoBEARS/teststable_v1.Rdata")
+load(file="BioGeoBEARS/teststable_v1.Rdata")
+
+# Also save to text files
+write.table(restable, file="BioGeoBEARS/restable.txt", quote=FALSE, sep="\t")
+write.table(unlist_df(teststable), file="BioGeoBEARS/teststable.txt", quote=FALSE, sep="\t")
+```
+
+Ahora calculamos el AIC para determinar el mejor modelo
+
+```{r}
+restable2 = restable
+restablea= restable
+# Con AICs normales:
+AICtable = calc_AIC_column(LnL_vals=restable$LnL, nparam_vals=restable$numparams)
+restable = cbind(restable, AICtable)
+restable_AIC_rellike = AkaikeWeights_on_summary_table(restable=restable, colname_to_use="AIC")
+restable_AIC_rellike = put_jcol_after_ecol(restable_AIC_rellike)
+restable_AIC_rellike
+
+# Con AICc (tomando en cuenta el tamaño de muestreo)
+samplesize = length(tr$tip.label)
+AICtable = calc_AICc_column(LnL_vals=restable$LnL, nparam_vals=restable$numparams, samplesize=samplesize)
+restable2 = cbind(restable2, AICtable)
+restable_AICc_rellike = AkaikeWeights_on_summary_table(restable=restable2, colname_to_use="AICc")
+restable_AICc_rellike = put_jcol_after_ecol(restable_AICc_rellike)
+restable_AICc_rellike
+
+```
+
+Guardamos
+
+```{r}
+# Also save to text files
+write.table(restable_AIC_rellike, file="BioGeoBEARS/restable_AIC_rellike.txt", quote=FALSE, sep="\t")
+write.table(restable_AICc_rellike, file="BioGeoBEARS/restable_AICc_rellike.txt", quote=FALSE, sep="\t")
+
+# Save with nice conditional formatting
+write.table(conditional_format_table(restable_AIC_rellike), file="BioGeoBEARS/restable_AIC_rellike_formatted.txt", quote=FALSE, sep="\t")
+write.table(conditional_format_table(restable_AICc_rellike), file="BioGeoBEARS/restable_AICc_rellike_formatted.txt", quote=FALSE, sep="\t")
+```
+
+Ahora agreguemos una matriz de dispersión gradual asimetrica, simulando la hipotesis de origen en norteamerica y la subsecuente colonización hacia el sur.
+
+El proceso es el mismo, sin embargo, debemos agregar la matriz de escalamiento
+
+```{r}
+
+# Intitialize a default model (DEC model)
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+
+# Give BioGeoBEARS the location of the phylogeny Newick file
+BioGeoBEARS_run_object$trfn = trfn
+
+# Give BioGeoBEARS the location of the geography text file
+BioGeoBEARS_run_object$geogfn = geogfn
+
+# Input the maximum range size
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    # Min to treat tip as a direct ancestor (no speciation event)
+BioGeoBEARS_run_object$include_null_range = F
+
+#
+#
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "../Data/adjacency_icteridae_6.txt"
+#BioGeoBEARS_run_object$areas_allowed_fn = "areas_allowed.txt"
+# BioGeoBEARS_run_object$areas_adjacency_fn = "adjacency_icteridae_6.txt"
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+#
+# Speed options and multicore processing if desired
+BioGeoBEARS_run_object$on_NaN_error = -1e50    # returns very low lnL if parameters produce NaN error (underflow check)
+BioGeoBEARS_run_object$speedup = TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params)
+BioGeoBEARS_run_object$use_optimx = TRUE    # if FALSE, use optim() instead of optimx();
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE# force_sparse=TRUE causes pathology & isn't much faster at this scale
+
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+# Divide the tree up by timeperiods/strata (uncomment this for stratified analysis)
+#BioGeoBEARS_run_object = section_the_tree(inputs=BioGeoBEARS_run_object, make_master_table=TRUE, plot_pieces=FALSE, fossils_older_than=0.001, cut_fossils=FALSE)
+# The stratified tree is described in this table:
+#BioGeoBEARS_run_object$master_table
+# Good default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE    # get ancestral states from optim run
+#
+BioGeoBEARS_run_object
+# This contains the model object
+BioGeoBEARS_run_object$BioGeoBEARS_model_object
+
+# This table contains the parameters of the model 
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table
+
+# Run this to check inputs. Read the error messages if you get them!
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+# For a slow analysis, run once, then set runslow=FALSE to just 
+# load the saved result.
+runslow = TRUE
+resfn = "BioGeoBEARS/DECx_6.Rdata"
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDECx = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDECx = res
+}
+#DEC+j
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE
+#
+
+# Get the ML parameter values from the 2-parameter nested model
+# (this will ensure that the 3-parameter model always does at least as good)
+dstart = resDEC$outputs@params_table["d","est"]
+estart = resDEC$outputs@params_table["e","est"]
+jstart = 0.0001
+
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "../Data/adjacency_icteridae_6.txt"
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE 
+# Input starting values for d, e
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = estart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = estart
+
+# Add j as a free parameter
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = jstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = jstart
+
+
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+
+resfn = "BioGeoBEARS/DECjx_6.Rdata"
+runslow = TRUE
+if (runslow)
+{
+  #sourceall("/Dropbox/_njm/__packages/BioGeoBEARS_setup/")
+  
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  
+  resDECjx = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDECjx = res
+}
+#Divalike
+# Run DIVALIKE
+#######################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    # Min to treat tip as a direct ancestor (no speciation event)
+BioGeoBEARS_run_object$include_null_range = TRUE    # set to FALSE for e.g. DEC* model, DEC*+J, etc.
+# Speed options and multicore processing if desired
+BioGeoBEARS_run_object$on_NaN_error = -1e50    # returns very low lnL if parameters produce NaN error (underflow check)
+BioGeoBEARS_run_object$speedup = TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params)
+BioGeoBEARS_run_object$use_optimx = TRUE    # if FALSE, use optim() instead of optimx();
+# if "GenSA", use Generalized Simulated Annealing, which seems better on high-dimensional
+# problems (5+ parameters), but seems to sometimes fail to optimize on simple problems
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE    # force_sparse=TRUE causes pathology & isn't much faster at this scale
+
+
+# This function loads the dispersal multiplier matrix etc. from the text files into the model object. Required for these to work!
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "../Data/adjacency_icteridae_6.txt"
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE    # get ancestral states from optim run
+#
+# Set up DIVALIKE model
+# Remove subset-sympatry
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "2-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "ysv*1/2"
+
+# Allow classic, widespread vicariance; all events equiprobable
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","init"] = 0.5
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","est"] = 0.5
+
+# No jump dispersal/founder-event speciation
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = 0.01
+# BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = 0.01
+
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+runslow = TRUE
+resfn = "BioGeoBEARS/DIVAx_6.Rdata"
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resDIVALIKEx = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDIVALIKEx = res
+}
+###########
+# Run DIVALIKE+J
+#######################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    # Min to treat tip as a direct ancestor (no speciation event)
+BioGeoBEARS_run_object$include_null_range = TRUE    # set to FALSE for e.g. DEC* model, DEC*+J, etc.
+
+
+# Speed options and multicore processing if desired
+BioGeoBEARS_run_object$on_NaN_error = -1e50    # returns very low lnL if parameters produce NaN error (underflow check)
+BioGeoBEARS_run_object$speedup = TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params)
+BioGeoBEARS_run_object$use_optimx = TRUE    # if FALSE, use optim() instead of optimx();
+# if "GenSA", use Generalized Simulated Annealing, which seems better on high-dimensional
+# problems (5+ parameters), but seems to sometimes fail to optimize on simple problems
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE    # force_sparse=TRUE causes pathology & isn't much faster at this scale
+
+
+# This function loads the dispersal multiplier matrix etc. from the text files into the model object. Required for these to work!
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "../Data/adjacency_icteridae_6.txt"
+
+BioGeoBEARS_run_object$distsfn = "~/Documents/Icteridae_biogeo/Code/data/DM_k6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+
+# Good default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE    # get ancestral states from optim run
+
+# Set up DIVALIKE+J model
+# Get the ML parameter values from the 2-parameter nested model
+# (this will ensure that the 3-parameter model always does at least as good)
+dstart = resDIVALIKE$outputs@params_table["d","est"]
+estart = resDIVALIKE$outputs@params_table["e","est"]
+jstart = 0.0001
+
+# Input starting values for d, e
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = estart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = estart
+
+# Remove subset-sympatry
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "2-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "ysv*1/2"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "ysv*1/2"
+
+# Allow classic, widespread vicariance; all events equiprobable
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","init"] = 0.5
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01v","est"] = 0.5
+
+# Add jump dispersal/founder-event speciation
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = jstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = jstart
+
+# Under DIVALIKE+J, the max of "j" should be 2, not 3 (as is default in DEC+J)
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","min"] = 0.00001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","max"] = 1.99999
+
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+resfn = "DIVAjx_6.Rdata"
+runslow = TRUE
+if (runslow)
+{
+
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  
+  resDIVALIKEjx = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resDIVALIKEjx = res
+}
+######
+#Bayarea
+# Run BAYAREALIKE
+#######################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    # Min to treat tip as a direct ancestor (no speciation event)
+BioGeoBEARS_run_object$include_null_range = F    # set to FALSE for e.g. DEC* model, DEC*+J, etc.
+
+
+# Speed options and multicore processing if desired
+BioGeoBEARS_run_object$on_NaN_error = -1e50    # returns very low lnL if parameters produce NaN error (underflow check)
+BioGeoBEARS_run_object$speedup = TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params)
+BioGeoBEARS_run_object$use_optimx = TRUE    # if FALSE, use optim() instead of optimx();
+# if "GenSA", use Generalized Simulated Annealing, which seems better on high-dimensional
+# problems (5+ parameters), but seems to sometimes fail to optimize on simple problems
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE    # force_sparse=TRUE causes pathology & isn't much faster at this scale
+
+
+# This function loads the dispersal multiplier matrix etc. from the text files into the model object. Required for these to work!
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "../Data/adjacency_icteridae_6.txt"
+
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+
+
+# Good default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE    # get ancestral states from optim run
+
+# Set up BAYAREALIKE model
+# No subset sympatry
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+# No vicariance
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","est"] = 0.0
+
+
+# Adjust linkage between parameters
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "1-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/1"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "1-j"
+
+# Only sympatric/range-copying (y) events allowed, and with 
+# exact copying (both descendants always the same size as the ancestor)
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","init"] = 0.9999
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","est"] = 0.9999
+# Check the inputs; fixing any initial ("init") values outside min/max
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+runslow = TRUE
+resfn = "BioGeoBEARS/BAYAREAx_6.Rdata"
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  resBAYAREALIKEx = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resBAYAREALIKEx = res
+}
+#######Run BAYAREALIKE+J
+#######################################################
+BioGeoBEARS_run_object = define_BioGeoBEARS_run()
+BioGeoBEARS_run_object$trfn = trfn
+BioGeoBEARS_run_object$geogfn = geogfn
+BioGeoBEARS_run_object$max_range_size = max_range_size
+BioGeoBEARS_run_object$min_branchlength = 0.000001    # Min to treat tip as a direct ancestor (no speciation event)
+BioGeoBEARS_run_object$include_null_range = TRUE    # set to FALSE for e.g. DEC* model, DEC*+J, etc.
+
+# Speed options and multicore processing if desired
+BioGeoBEARS_run_object$on_NaN_error = -1e50    # returns very low lnL if parameters produce NaN error (underflow check)
+BioGeoBEARS_run_object$speedup = TRUE          # shorcuts to speed ML search; use FALSE if worried (e.g. >3 params)
+BioGeoBEARS_run_object$use_optimx = "GenSA"
+BioGeoBEARS_run_object$num_cores_to_use = 4
+BioGeoBEARS_run_object$force_sparse = FALSE    # force_sparse=TRUE causes pathology & isn't much faster at this scale
+
+# This function loads the dispersal multiplier matrix etc. from the text files into the model object. Required for these to work!
+# (It also runs some checks on these inputs for certain errors.)
+BioGeoBEARS_run_object$dispersal_multipliers_fn = "../Data/adjacency_icteridae_6.txt"
+
+BioGeoBEARS_run_object$distsfn = "../Data/distk6.txt"
+BioGeoBEARS_run_object = readfiles_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+
+
+# Good default settings to get ancestral states
+BioGeoBEARS_run_object$return_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_TTL_loglike_from_condlikes_table = TRUE
+BioGeoBEARS_run_object$calc_ancprobs = TRUE    # get ancestral states from optim run
+
+# Set up BAYAREALIKE+J model
+# Get the ML parameter values from the 2-parameter nested model
+# (this will ensure that the 3-parameter model always does at least as good)
+dstart = resBAYAREALIKE$outputs@params_table["d","est"]
+estart = resBAYAREALIKE$outputs@params_table["e","est"]
+jstart = 0.0001
+
+# Input starting values for d, e
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","init"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","est"] = dstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","init"] = estart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","est"] = estart
+
+# No subset sympatry
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["s","est"] = 0.0
+
+# No vicariance
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","init"] = 0.0
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["v","est"] = 0.0
+
+# *DO* allow jump dispersal/founder-event speciation (set the starting value close to 0)
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","type"] = "free"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","init"] = jstart
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","est"] = jstart
+
+# Under BAYAREALIKE+J, the max of "j" should be 1, not 3 (as is default in DEC+J) or 2 (as in DIVALIKE+J)
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","max"] = 0.99999
+
+# Adjust linkage between parameters
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ysv","type"] = "1-j"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["ys","type"] = "ysv*1/1"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["y","type"] = "1-j"
+
+# Only sympatric/range-copying (y) events allowed, and with 
+# exact copying (both descendants always the same size as the ancestor)
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","type"] = "fixed"
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","init"] = 0.9999
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["mx01y","est"] = 0.9999
+
+# slightly for each parameter:
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","min"] = 0.0000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["d","max"] = 4.9999999
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","min"] = 0.0000001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["e","max"] = 4.9999999
+
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","min"] = 0.00001
+BioGeoBEARS_run_object$BioGeoBEARS_model_object@params_table["j","max"] = 0.99999
+BioGeoBEARS_run_object = fix_BioGeoBEARS_params_minmax(BioGeoBEARS_run_object=BioGeoBEARS_run_object)
+check_BioGeoBEARS_run(BioGeoBEARS_run_object)
+
+resfn = "BioGeoBEARS/BAYAREAjx_k6.RData"
+runslow = TRUE
+if (runslow)
+{
+  res = bears_optim_run(BioGeoBEARS_run_object)
+  res    
+  
+  save(res, file=resfn)
+  
+  resBAYAREALIKEjx = res
+} else {
+  # Loads to "res"
+  load(resfn)
+  resBAYAREALIKEjx = res
+}
+#
+
+
+```
+
+Calculemos sus parametros y aic
+
+```{r}
+#CALCULATE SUMMARY STATISTICS TO COMPARE
+
+
+# Set up empty tables to hold the statistical results
+restablex = NULL
+teststablex = NULL
+
+#######################################################
+# Statistics -- DEC vs. DEC+J
+#######################################################
+# We have to extract the log-likelihood differently, depending on the 
+# version of optim/optimx
+LnL_2 = get_LnL_from_BioGeoBEARS_results_object(resDECx)
+LnL_1 = get_LnL_from_BioGeoBEARS_results_object(resDECjx)
+
+numparams1 = 3
+numparams2 = 2
+stats = AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
+stats
+
+# DECx, null model for Likelihood Ratio Test (LRT)
+res2x = extract_params_from_BioGeoBEARS_results_object(results_object=resDECx, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+# DEC+Jx, alternative model for Likelihood Ratio Test (LRT)
+res1x = extract_params_from_BioGeoBEARS_results_object(results_object=resDECjx, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+
+# The null hypothesis for a Likelihood Ratio Test (LRT) is that two models
+# confer the same likelihood on the data. See: Brian O'Meara's webpage:
+# http://www.brianomeara.info/tutorials/aic
+# ...for an intro to LRT, AIC, and AICc
+
+rbind(res2x, res1x)
+tmp_testsx = conditional_format_table(stats)
+
+restablex = rbind(restablex, res2x, res1x)
+teststablex = rbind(teststablex, tmp_testsx)
+
+#######################################################
+# Statistics -- DIVALIKE vs. DIVALIKE+J
+#######################################################
+# We have to extract the log-likelihood differently, depending on the 
+# version of optim/optimx
+LnL_2 = get_LnL_from_BioGeoBEARS_results_object(resDIVALIKEx)
+LnL_1 = get_LnL_from_BioGeoBEARS_results_object(resDIVALIKEjx)
+
+numparams1 = 3
+numparams2 = 2
+stats = AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
+stats
+
+# DIVALIKE, null model for Likelihood Ratio Test (LRT)
+res2x = extract_params_from_BioGeoBEARS_results_object(results_object=resDIVALIKEx, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+# DIVALIKE+J, alternative model for Likelihood Ratio Test (LRT)
+res1x = extract_params_from_BioGeoBEARS_results_object(results_object=resDIVALIKEjx, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+
+rbind(res2x, res1x)
+conditional_format_table(stats)
+
+tmp_testsx = conditional_format_table(stats)
+
+restablex = rbind(restablex, res2x, res1x)
+teststablex = rbind(teststablex, tmp_testsx)
+
+#######################################################
+# Statistics -- BAYAREALIKE vs. BAYAREALIKE+J
+#######################################################
+# We have to extract the log-likelihood differently, depending on the 
+# version of optim/optimx
+LnL_2 = get_LnL_from_BioGeoBEARS_results_object(resBAYAREALIKEx)
+LnL_1 = get_LnL_from_BioGeoBEARS_results_object(resBAYAREALIKEjx)
+
+numparams1 = 3
+numparams2 = 2
+stats = AICstats_2models(LnL_1, LnL_2, numparams1, numparams2)
+stats
+
+# BAYAREALIKE, null model for Likelihood Ratio Test (LRT)
+res2x = extract_params_from_BioGeoBEARS_results_object(results_object=resBAYAREALIKEx, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+# BAYAREALIKE+J, alternative model for Likelihood Ratio Test (LRT)
+res1x = extract_params_from_BioGeoBEARS_results_object(results_object=resBAYAREALIKEjx, returnwhat="table", addl_params=c("j"), paramsstr_digits=4)
+
+rbind(res2x, res1x)
+conditional_format_table(stats)
+
+tmp_testsx = conditional_format_table(stats)
+
+restablex = rbind(restablex, res2x, res1x)
+teststablex = rbind(teststablex, tmp_testsx)
+
+#########################################################################
+# ASSEMBLE RESULTS TABLES: DEC, DEC+J, DIVALIKE, DIVALIKE+J, BAYAREALIKE, BAYAREALIKE+J
+#########################################################################
+teststablex$alt = c("DEC+Jx", "DIVALIKE+Jx", "BAYAREALIKE+Jx")
+teststablex$null = c("DECx", "DIVALIKEx", "BAYAREALIKEx")
+row.names(restablex) = c("DECx", "DEC+Jx", "DIVALIKEx", "DIVALIKE+Jx", "BAYAREALIKEx", "BAYAREALIKE+Jx")
+restablex = put_jcol_after_ecol(restablex)
+restablex
+
+# Look at the results!!
+restablex
+teststablex
+
+#######################################################
+# Save the results tables for later -- check for e.g.
+# convergence issues
+#######################################################
+
+# Loads to "restable"
+save(restable, file="BioGeoBEARS/restablex_v1.Rdata")
+load(file="BioGeoBEARS/restablex_v1.Rdata")
+
+# Loads to "teststable"
+save(teststable, file="BioGeoBEARS/teststablex_v1.Rdata")
+load(file="BioGeoBEARS/teststablex_v1.Rdata")
+
+# Also save to text files
+write.table(restable, file="BioGeoBEARS/restable.txt", quote=FALSE, sep="\t")
+write.table(unlist_df(teststable), file="BioGeoBEARS/teststable.txt", quote=FALSE, sep="\t")
+
+#######################################################
+# Model weights of all twelve models
+#######################################################
+restable2x = rbind(restablea,restablex)
+
+# With AICs:
+#AICtablex = calc_AIC_column(LnL_vals=restable2x$LnL, nparam_vals=restable2x$numparams)
+#restable2x = cbind(restable2x, AICtablex)
+#restable_AIC_rellikex = AkaikeWeights_on_summary_table(restable=restable2x, colname_to_use="AIC")
+#restable_AIC_rellikex = put_jcol_after_ecol(restable_AIC_rellikex)
+#restable_AIC_rellikex
+
+# With AICcs -- factors in sample size
+samplesize = length(tr$tip.label)
+AICtablex = calc_AICc_column(LnL_vals=restable2x$LnL, nparam_vals=restable2x$numparams, samplesize=samplesize)
+restable2x = cbind(restable2x, AICtablex)
+restable_AICc_rellikex = AkaikeWeights_on_summary_table(restable=restable2x, colname_to_use="AICc")
+restable_AICc_rellikex = put_jcol_after_ecol(restable_AICc_rellikex)
+restable_AICc_rellikex
+
+# Also save to text files
+write.table(restable_AIC_rellike, file="BioGeoBEARS/restable_AIC_rellikex.txt", quote=FALSE, sep="\t")
+write.table(restable_AICc_rellike, file="BioGeoBEARS/restable_AICc_rellikex.txt", quote=FALSE, sep="\t")
+
+# Save with nice conditional formatting
+write.table(conditional_format_table(restable_AIC_rellike), file="BioGeoBEARS/restable_AIC_rellike_formattedx.txt", quote=FALSE, sep="\t")
+write.table(conditional_format_table(restable_AICc_rellike), file="BioGeoBEARS/restable_AICc_rellike_formatted.txtx", quote=FALSE, sep="\t")
+
+library(tidyverse)
+final_table<-restable_AICc_rellikex
+teststablex
+final_table %>% arrange(desc(AICc_wt))
+
+
+```
+
+Veamos el mejor modelo, primero usando las funciones nativas de biogeobears
+
+```{r}
+# States
+scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
+
+analysis_titletxt<-"Gradual DEC j model"
+res2x = plot_BioGeoBEARS_results(resDECjx, analysis_titletxt, addl_params=list("j"), plotwhat="text", label.offset=0.45, tipcex=0.7, statecex=0.7, splitcex=0.6, titlecex=0.8, plotsplits=TRUE, cornercoords_loc=scriptdir, include_null_range=F, tr=tr, tipranges=tipranges)
+
+# Pie chart
+plot_BioGeoBEARS_results(resDECjx, analysis_titletxt, addl_params=list("j"), plotwhat="pie", label.offset=0.45, tipcex=0.7, statecex=0.7, splitcex=0.6, titlecex=0.8, plotsplits=TRUE, cornercoords_loc=scriptdir, include_null_range=F, tr=tr, tipranges=tipranges)
+
+#######################################################
+```
+
+ahora quiza una manera ligeramente mejor
+
+```{r}
+library(paleotree)
+library(ggtree)
+library(deeptime)
+dfx<-res2df(resDECjx,tr,areas = 6)
+nodedtree<-makeNodeLabel(tr)
+p1<-ggtree(nodedtree)
+p2<-p1%<+%dfx+geom_nodepoint(aes(color = area))+
+  geom_tippoint(aes(color=area))+
+
+  scale_color_manual(values=c("#d73027","#343230","#710081","#2D0081","#CD00FF","#FF6BED","#fc8d59","#D69B2C","#F3C46A","#B4BD6E","#A9B703","#05FF3E","#088100","#fee090","#E0F36A","#E3B8FF","#ffffbf","#B7034F","#91bfdb","#4575b4"),name="Area")+
+  theme_tree2()+
+  theme(legend.key.height= unit(0.02, 'cm'),
+        legend.key.width= unit(0.04, 'cm')
+  )
+
+revts(p2)+coord_geo(xlim = c(-14, 0), ylim = c(-2, Ntip(nodedtree)),
+                    neg = TRUE, abbrv = F,lab = T,center_end_labels = TRUE,dat=list("epochs"),size = 3)+
+  geom_vline(xintercept = -2.58,linetype="dashed",color="darkgray")+
+  geom_vline(xintercept=-5.33,linetype="dashed",color="darkgray")
+
+
+```

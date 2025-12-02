@@ -1,0 +1,244 @@
+---
+title: "Phyloregions"
+format: html
+editor: visual
+---
+
+## Cargamos paquetes
+
+```{r}
+library(phyloregion)
+library(sf)
+sf_use_s2(F)
+library(phytools)
+library(dplyr)
+library(letsR)
+library(trans4m8)
+library(ggplot2)
+library(terra)
+library(tidyterra)
+library(picante)
+```
+
+## Cargamos datos
+
+```{r,echo=TRUE}
+maps<-read_sf("../data/maps/")
+phylo<-read.tree("../data/treevirens.tre")
+
+```
+
+## Creamos matriz PAM
+
+```{r}
+ictpam<-lets.presab(maps,resol = .5,count = T) 
+ictpoints<-pam2points(ictpam,phylo_names = T,gridid = F)
+names(ictpoints)<-c("lon","lat","taxon")
+
+comm1<-points2comm(dat=ictpoints,res = 1,lon="lon",lat="lat",species="taxon")
+
+phylo2<-keep.tip(phylo,unique(ictpoints$taxon))
+sparscom<-comm1$comm_dat
+```
+
+## Extraemos la matriz
+
+```{r}
+sparscom<-comm1$comm_dat
+```
+
+## Calcular phylobeta
+
+```{r}
+
+pb <- phylobeta(sparscom, phylo2)
+#extraer la beta de simpson
+pbsimp<-pb$phylo.beta.sim
+```
+
+Usar la matriz de disimiliutd de phylobeta para calcular el mejor algoritmo de agrupamiento
+
+```{r}
+link<-select_linkage(pbsimp)
+link
+```
+
+## Calcular K optimo
+
+Usando el mejor algoritmo de agrupamiento
+
+```{r}
+optim<-optimal_phyloregion(pbsimp,method="average",k=10)
+
+```
+
+Veamoslo
+
+```{r}
+plot(optim$df$k, optim$df$ev, ylab = "Explained variances",
+     xlab = "Number of clusters")
+lines(optim$df$k[order(optim$df$k)], optim$df$ev[order(optim$df$k)], pch = 1)
+points(optim$optimal$k, optim$optimal$ev, pch = 21, bg = "red", cex = 3)
+points(optim$optimal$k, optim$optimal$ev, pch = 21, bg = "red", type = "h")
+```
+
+El número optimo de k es 6
+
+## Calcular phyloregiones
+
+```{r}
+preg<-phyloregion(pbsimp,k=6,method="average",pol = comm1$map)
+```
+
+veamos el ndms
+
+```{r}
+plot_NMDS(preg,cex=3,)
+text_NMDS(preg)
+```
+
+Veamos las regiones
+
+```{r}
+plot(preg)
+```
+
+## Preparar las regiones
+
+la mayoria de los métodos posteriores que utilizan la regionalización como base, requieren que las áreas sean representadas en letras.
+
+```{r}
+preg2<-preg
+preg2$pol$cluster<-LETTERS[1:optim$optimal$k]
+preg2$pol$COLOURS<-palleteregs2<-c("#d73027","#fc8d59","#fee090","#ffffbf","#91bfdb","#4575b4")
+plot(preg2)
+```
+
+## ¿Qué sigue?
+
+Teniendo este objeto "phyloregion" ahora podemos comparar diferentes metricas
+
+Cargamos datos pasados
+
+```{r}
+pdrast<-rast("../Data/pdrast.tiff")
+iucnmap<-rast("../Data/iucnmap.tiff")
+```
+
+## PD
+
+extraer los datos de nuestras metricas pasadas
+
+```{r}
+pd_av <- terra::extract(
+  x = pdrast, #datos a extraer
+y = preg2$pol,  #  filoregiones
+fun = mean, # La función a aplicar (promedio)
+na.rm = TRUE, # Ignorar valores NA en el cálculo del promedio
+ID = FALSE  # FALSE para que el resultado solo contenga las columnas de datos
+)
+```
+
+Una vez extraidos, unirlos al objeto phyloregion (o al vector espacial que arroja)
+
+```{r}
+preg2$pol$pd<-pd_av
+```
+
+veamoslo
+
+```{r}
+ggplot()+
+  geom_spatvector(data = preg2$pol,aes(fill = pd))+
+  theme_void()+
+  scale_fill_gradientn(colors = hcl.colors(6, "Roma"),name= "Average PD")
+```
+
+## Tratemos con EDGE
+
+```{r}
+edge_av <- terra::extract(x = iucnmap,y = preg2$pol,fun = mean,na.rm = TRUE, ID = FALSE)
+
+preg2$pol$edge<-edge_av
+```
+
+veamoslo
+
+```{r}
+ggplot()+
+  geom_spatvector(data = preg2$pol,aes(fill = edge))+
+  theme_void()+
+  scale_fill_gradientn(colors = hcl.colors(6, "Inferno"),name= "Average EDGE")
+```
+
+para más paletas
+
+```{r}
+hcl.pals()
+```
+
+Veamos la diferencia
+
+```{r}
+phyloregs<-st_as_sf(preg2$pol)
+iucndf<-as.data.frame(iucnmap,xy=T)
+extracx<-extract(iucnmap,phyloregs) 
+names(extracx)<-c("region","EDGE")
+
+ggplot(extracx,aes(x=as.character(region),y=EDGE,fill= as.character(region)))+
+  geom_boxplot()
+```
+
+## NRI
+
+En el NRI, el pool de especies es importante, y sirve para identificar procesos a nivel regional, cuando estos difieren del nivel global. Por ejemplo, si una región a nivel global aparece agrupada, pero cuando la escala se reduce, la estructura se vuelve estocástica, esto puede indicar que hubo dispersión hacia esa región, donde después las comunidades se ensamblaron de manera estocástica
+
+para esto tenemos que extraer las especies region
+
+```{r}
+phyloregs<-st_as_sf(preg2$pol)
+regsp<-st_intersection(phyloregs,maps)
+regsa<-regsp %>% 
+  filter(cluster=="A") %>% 
+  select(sci_name,geometry)
+pamA<-lets.presab(regsa,resol = 1,count = T)
+presabA<-pamA$Presence_and_Absence_Matrix[,-c(1,2)]
+phyloA<-picante::match.phylo.comm(phylo,presabA)$phy
+phyloA
+nriA<-ses.mpd(presabA,cophenetic(phyloA),null.model = "taxa.labels",iterations = 1000,runs = 999)$mpd.obs.z*-1
+nriAr<-rasterize(as.matrix(pamA$Presence_and_Absence_Matrix[,c(1,2)]),pamA$Richness_Raster,nriA)
+plot(nriAr)
+```
+
+## Últimos pasos
+
+Extraemos los clusters y les añadimos las especies
+
+```{r}
+regdf<-preg$region.df
+spclust<-sp2cluster(sparscom,regdf,letters = T)
+head(spclust)
+```
+
+para biogeobears necesitaremos un archivo geográfico en formato phylip.
+
+```{r}
+clphylip<-data2phylip(spclust)
+head(clphylip)
+write.table(clphylip,"../Data/phylip_k6.txt",sep="\t",row.names = F,col.names = F,quote=F)
+```
+
+Podemos también sacar la distancia geodesica entre regiones
+
+![]()
+
+```{r}
+distclust<-cluster2dist(preg2,BioGeoBEARS = T)
+distclust
+```
+
+guardemosla
+
+```{r}
+write.table(distclust,"../Data/distk6.txt",sep="\t",row.names = F,col.names = T,quote=F)
+```
