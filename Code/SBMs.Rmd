@@ -26,7 +26,7 @@ library(tidyverse)
 Primero, hacemos la configuración inicial
 
 ```{r}
-load("BioGeoBEARS/DECjx_6.Rdata")
+load("BioGeoBEARS/DECj_6.Rdata")
 res = res# el objeto res a usar sera resDECjx
 scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
 
