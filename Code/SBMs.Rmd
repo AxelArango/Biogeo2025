@@ -1,0 +1,281 @@
+---
+title: "SBMs"
+author: "Axel Arango"
+date: "2025-12-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ape)
+library(optimx)   # optimx  para optimización
+library(GenSA)    # GenSA para optimización, 
+library(rexpokit)
+library(cladoRcpp)
+library(snow)     # (para multicore)
+library(parallel)
+library(BioGeoBEARS)
+library(trans4m8)
+library(tidyverse)
+```
+
+
+Primero, hacemos la configuración inicial
+
+```{r}
+load("BioGeoBEARS/DECjx_6.Rdata")
+res = res# el objeto res a usar sera resDECjx
+scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
+
+```
+
+creamos un directorio para los sbms
+```{r}
+dir.create("bsms")
+```
+
+ahora creamos los objetos vacios para ir llenando con eventos de los mapeos estocásticos
+
+```{r}
+clado_events_tables = NULL
+ana_events_tables = NULL
+lnum = 0
+```
+
+Extraemos los inputos para los mapeos estocásticos de el mejor modelo
+Esto puede ser lento para modelos con muchos espacios y especies, dado que las probabilidades independientes para cada rama se pre-calculan con esta función.
+Por ejemplo, para 10 áreas, esto requiere el calculo de una matriz de 1024x1024 para cada rama.  En un árbol ~800 tips  (~1600 branches), serían 1600 matriz de 1024x1024, lo cuál equivale a alrededor de 1.6 gb.
+
+A tener en consideración para el guardado del "BSM_inputs_file.Rdata".
+
+```{r}
+BSM_inputs_fn = "bsms/BSM_inputs_file.Rdata"
+runInputsSlow = TRUE
+if (runInputsSlow)
+{
+  stochastic_mapping_inputs_list = get_inputs_for_stochastic_mapping(res=res)
+  save(stochastic_mapping_inputs_list, file=BSM_inputs_fn)
+} else {
+  load(BSM_inputs_fn)
+} 
+
+```
+Checamos los inputs
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+#Correr solo por curiosidad
+#filogenia
+stochastic_mapping_inputs_list$phy2
+#estructura de la filogenia
+stochastic_mapping_inputs_list$trtable
+#valores de probabilidad por rama por área
+stochastic_mapping_inputs_list$independent_likelihoods_on_each_branch
+#transition matrix between areas
+stochastic_mapping_inputs_list$Qmat
+
+```
+
+ya que tenemos los inputs del modelo, ahora podemos correr los BSMs
+
+```{r include=FALSE}
+runBSMslow = TRUE
+if (runBSMslow == TRUE)
+{
+  
+  BSM_output = runBSM(res, stochastic_mapping_inputs_list=stochastic_mapping_inputs_list, maxnum_maps_to_try=100, nummaps_goal=100, maxtries_per_branch=40000, save_after_every_try=TRUE, savedir="bsms/", seedval=12345, wait_before_save=0.01, master_nodenum_toPrint=0)
+  
+  RES_clado_events_tables = BSM_output$RES_clado_events_tables
+  RES_ana_events_tables = BSM_output$RES_ana_events_tables
+} else {
+  load(file="bsms/RES_clado_events_tables.Rdata")
+  # Loads to: RES_ana_events_tables
+  load(file="bsms/RES_ana_events_tables.Rdata")
+  BSM_output = NULL
+  BSM_output$RES_clado_events_tables = RES_clado_events_tables
+  BSM_output$RES_ana_events_tables = RES_ana_events_tables
+}
+```
+
+Extraemos los outputs de los BSMs
+
+```{r}
+clado_events_tables = BSM_output$RES_clado_events_tables #los eventos cladogenéticos
+ana_events_tables = BSM_output$RES_ana_events_tables #los eventos anagenéticos
+```
+
+veamoslos
+```{r}
+
+head(clado_events_tables[[1]])
+head(ana_events_tables[[1]])
+length(clado_events_tables)
+length(ana_events_tables)
+
+```
+
+veamoslo
+```{r}
+geogfn ="../Data/phylip_k6.txt"
+tipranges <- getranges_from_LagrangePHYLIP(lgdata_fn=geogfn)
+include_null_range = F
+areanames = names(tipranges@df)
+areas = areanames
+max_range_size = 6
+```
+
+```{r}
+#set up para poder pintar los eventos
+states_list_0based = rcpp_areas_list_to_states_list(areas=areas, maxareas=max_range_size, include_null_range=include_null_range)
+
+colors_list_for_states = get_colors_for_states_list_0based(areanames=areanames, states_list_0based=states_list_0based, max_range_size=max_range_size, plot_null_range=F)
+
+scriptdir = np(system.file("extdata/a_scripts", package="BioGeoBEARS"))
+stratified = F
+clado_events_table1 = clado_events_tables[[1]]
+ana_events_table1 = ana_events_tables[[1]]
+
+```
+
+
+Ahora si a plotear
+```{r}
+# Convert the BSM into a modified res object
+master_table_cladogenetic_events = clado_events_tables[[1]]
+resmod = stochastic_map_states_into_res(res=res, master_table_cladogenetic_events=master_table_cladogenetic_events, stratified=stratified)
+
+plot_BioGeoBEARS_results(results_object=resmod, analysis_titletxt="Stochastic map", addl_params=list("j"), label.offset=0.5, plotwhat="text", cornercoords_loc=scriptdir, root.edge=TRUE, colors_list_for_states=colors_list_for_states, skiptree=FALSE, show.tip.label=TRUE)
+
+#Pintar las ramas
+paint_stochastic_map_branches(res=resmod, master_table_cladogenetic_events=master_table_cladogenetic_events, colors_list_for_states=colors_list_for_states, lwd=5, lty=par("lty"), root.edge=TRUE, stratified=stratified)
+
+plot_BioGeoBEARS_results(results_object=resmod, analysis_titletxt="Stochastic map", addl_params=list("j"), plotwhat="text", cornercoords_loc=scriptdir, root.edge=TRUE, colors_list_for_states=colors_list_for_states, skiptree=TRUE, show.tip.label=TRUE)
+```
+Esa es una historia
+
+Ahora hagamos un summary de los mapas estocásticos
+```{r}
+areanames = names(tipranges@df)
+actual_names = areanames
+actual_names
+
+
+# Extraer el output de los BSM
+clado_events_tables = BSM_output$RES_clado_events_tables
+ana_events_tables = BSM_output$RES_ana_events_tables
+
+# Simular áreas de origen
+BSMs_w_sourceAreas = simulate_source_areas_ana_clado(res, clado_events_tables, ana_events_tables, areanames)
+clado_events_tables = BSMs_w_sourceAreas$clado_events_tables
+ana_events_tables = BSMs_w_sourceAreas$ana_events_tables
+
+# Contar todos los eventos anageneticos y cladogeneticos
+counts_list = count_ana_clado_events(clado_events_tables, ana_events_tables, areanames, actual_names)
+
+summary_counts_BSMs = counts_list$summary_counts_BSMs
+print(conditional_format_table(summary_counts_BSMs))
+
+# Histogramas de los eventos cladogeneticos
+hist_event_counts(counts_list)
+
+```
+
+usando event2df
+```{r warning=TRUE}
+disp<-aevent2df(ana_events_tables,type = "d")
+names(disp)<- c("type","MYA","node","area","Map")
+length(disp$type)/100
+ext<-aevent2df(ana_events_tables,type = "e")
+names(ext)<- c("type","MYA","node","area","Map")
+length(ext$type)/100
+symp<-event2df(clado_events_tables,type = "sympatry (y)")
+length(symp$type)/100
+```
+
+Edad promedio de colonización
+
+
+plots
+```{r}
+colo<-data.frame()
+for(i in 1:100){
+  maptable<-disp[which(disp$Map==i),]
+  maxarea<-maptable %>% 
+    group_by(area) %>% 
+    summarise(col_time=max(MYA))
+  colo<-rbind(colo,maxarea)
+  }
+
+col_time<-colo %>% 
+  group_by(area) %>% 
+  summarise(mcol_time=mean(col_time),sdcol_time=sd(col_time))
+```
+
+podemos también observar los eventos en el tiempo
+
+```{r warning=TRUE, include=FALSE}
+#extraemos los eventos
+symp<-event2df(clado_events_tables,"sympatry (y)")
+sub_s<-event2df(clado_events_tables,"subset (s)")
+vic<-event2df(clado_events_tables,"vicariance (v)")
+#los unimos
+all_events<-rbind(symp,sub_s,vic)
+
+
+```
+
+```{r}
+head(all_events)
+```
+
+
+ahora los graficamos, primero el tipo de evento por region en el tiempo
+```{r}
+ggplot(all_events,aes(x=MYA,y=areas,fill=type))+
+  geom_boxplot()+
+  scale_x_reverse()+
+  scale_y_discrete(position="right")+
+  scale_fill_manual(name="Event type",values=c("darkred","blue","pink"),labels=c("subset\ndispersal","in situ\nspeciation","vicariance"))+
+  ylab("")+
+  theme_classic()
+```
+
+o por evento en el tiempo dependiendo de la región
+```{r}
+cols<-c("#d73027","#fc8d59","#fee090","#ffffbf","#91bfdb","#4575b4")
+ggplot(all_events,aes(x=MYA,y=type,fill=areas))+
+  geom_boxplot()+
+  scale_x_reverse()+
+  scale_y_discrete(position="right")+
+  scale_fill_manual(name="Region",values=c(cols[1:6]))+
+  theme_classic()+
+  ylab("")
+
+```
+
+podemos hacerlo con eventos anagenéticos
+```{r}
+dispersals<-aevent2df(ana_events_tables,"d")
+extinctions<-aevent2df(ana_events_tables,"e")
+anaev<-rbind(dispersals,extinctions)
+ggplot(anaev,aes(x=MYA,y=type,fill=area))+
+  geom_boxplot()+
+  scale_x_reverse()+
+  scale_y_discrete(position="right")+
+  scale_fill_manual(name="areas",values=c(cols[1:6]))+
+  theme_classic()+
+  ylab("")
+```
+
+podemos explorar el promedio de dispersiones entre sitios
+```{r}
+mean_dispersal<-counts_list$all_dispersals_counts_fromto_means
+mean_dispersal
+```
+
+
