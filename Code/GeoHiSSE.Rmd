@@ -1,0 +1,208 @@
+---
+title: "GeoHiSSE"
+author: "Axel Arango"
+date: "2025-12-03"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r }
+library(hisse)
+library(trans4m8)
+library(phytools)
+library(tidyverse)
+library(ggplot2)
+```
+
+Primero cargamos las especies con sus clusters y la filogenia
+
+```{r}
+spclust<-read.csv("../Data/spclust.csv",header = T)
+phy<-read.tree("../Data/treevirens.tre")
+head(spclust)
+```
+
+Ahora podemos usar trans4m8 para volver binarias las áreas
+
+```{r}
+bireg<-clus2bi(spclust,reg="AF",num=T)
+#AF porque son las áreas en el Neartico
+head(bireg)
+```
+
+Generamos una lista con los parametros a estimar de los modelos
+
+```{r}
+pars <- SimulateGeoHiSSE(hidden.traits = 1, return.GeoHiSSE_pars = TRUE)# le decimos que tendrá un estado oculto
+pars$model.pars[,1] <- c(0.1, 0.1, 0.1, 0.03, 0.03, 0.05, 0.05) #tasas de especiación, extinción y dispersión para región neartica
+pars$model.pars[,2] <- c(0.2, 0.2, 0.2, 0.03, 0.03, 0.05, 0.05) #tasas para región neotropical
+pars$q.01[1,2] <- pars$q.01[2,1] <- 0.005 #establecemos una tasa de transición de para ambas regiones
+pars$q.0[1,2] <- pars$q.0[2,1] <- 0.005 #tasa de transicion para región neartica
+pars$q.1[1,2] <- pars$q.1[2,1] <- 0.005 #tasa de transicion para región neotropical
+pars
+```
+
+Ahora ajustaremos un total de cuatro modelos: dos modelos con un proceso de diversificación independiente del rango y otros dos modelos en los que el rango afecta la tasa de diversificación de los linajes (de los cuales dos modelos incorporarán estados ocultos).
+
+Los modelos 1 y 2 a continuación no incluyen estados ocultos. Para el modelo 1 (mod1), asumimos tasas iguales independientemente de la región biogeográfica.
+
+O sea, un modelo Nulo
+
+Para esto debemos remover la tasa de recambio del rango "extendido"
+
+```{r}
+turnover <- c(1,1,0)
+eps <- c(1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0)
+trans.rate.mod <- ParEqual(trans.rate, c(1,2))
+mod1 <- GeoHiSSE(phy = phy, data = bireg, f=c(1,1,1),
+                  turnover=turnover, eps=eps,
+                  hidden.states=FALSE, trans.rate=trans.rate.mod, 
+                  turnover.upper=100, trans.upper=10)
+
+```
+
+
+Para llevar a cabo un modelo GeoSSE canónico (mod2), donde la evolución del rango afecta la diversificación, agregamos nuevamente la tasa de recambio para el rango extendido, de modo que hay tres parámetros de recambio y dos parámetros de fracción extinción estimados.
+
+```{r}
+turnover <- c(1,2,3)
+eps <- c(1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=0)
+trans.rate.mod <- ParEqual(trans.rate, c(1,2))
+mod2 <- GeoHiSSE(phy = phy, data = bireg, f=c(1,1,1),
+                  turnover=turnover, eps=eps,
+                  hidden.states=FALSE, trans.rate=trans.rate.mod,
+                  turnover.upper=100, trans.upper=10)
+
+#turnover es la suma de extinciones y especiaciones por area (lambda+mu)
+#eps, es la fracción de extinción o que tantas extinciones hubo por especiaciones (mu/lambda)
+```
+
+Los modelos 3 y 4 a continuación tienen dos estados ocultos cada uno.
+
+Primero, configuraremos un modelo de diversificación independiente del rango (mod3). Como en el mod1, si diversificación es independiente de la evolución del rango, debemos eliminar la tasa de rotación para el rango generalizado.
+
+```{r}
+#Aqui los parametros varían entre estados ocultos, pero son iguales entre rangos nativos
+
+turnover <- c(1,1,0,2,2,0)
+eps <- c(1,1,1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1, make.null=TRUE)
+trans.rate.mod <- ParEqual(trans.rate, c(1,2))
+mod3 <- GeoHiSSE(phy = phy, data = bireg, f=c(1,1,1),
+                  turnover=turnover, eps=eps,
+                  hidden.states=TRUE, trans.rate=trans.rate.mod,
+                  turnover.upper=100, trans.upper=10)
+```
+
+Finalmente, para realizar un modelo GeoHiSSE (mod4), permitimos variar todas las tasas
+
+```{r}
+
+turnover <- c(1,2,3,4,5,6)
+eps <- c(1,1,1,1)
+trans.rate <- TransMatMakerGeoHiSSE(hidden.traits=1)
+trans.rate.mod <- ParEqual(trans.rate, c(1,2))
+mod4 <- GeoHiSSE(phy = phy, data = bireg, f=c(1,1,1),
+                  turnover=turnover, eps=eps,
+                  hidden.states=TRUE, trans.rate=trans.rate.mod,
+                  turnover.upper=100, trans.upper=10)
+```
+
+Ahora calculamos los pesos de AIC
+
+```{r}
+GetAICWeights(list(model1 = mod1, model2 = mod2, model3 = mod3, model4 = mod4), criterion="AIC")
+```
+
+El modelo 4 tiene un peso mucho mayor,
+ahora hacemos una reconstrucción marginal para el mejor modelo. 
+
+Esto reconstruirá los estados ocultos en los nodos de la filogenia.
+
+Posteriormente, podemos usar esta información para calcular las tasas de por área.
+
+```{r}
+recon.mod4 <- MarginReconGeoSSE(phy = mod4$phy, data = mod4$data, f = mod4$f,
+                                 pars = mod4$solution, hidden.states = 2,
+                                 root.type = mod4$root.type, root.p = mod4$root.p,
+                                 AIC = mod4$AIC, n.cores = 6)
+```
+
+Ahora extraemos las tasas
+
+```{r}
+model.ave.rates <- GetModelAveRates(x = recon.mod4, type = "tips")
+head(model.ave.rates)
+```
+
+Plotemos el modelo
+```{r}
+plot.geohisse.states(x = recon.mod4, rate.param = "speciation", type = "fan",
+                     show.tip.label = FALSE, legend = TRUE)
+```
+
+Extraemos el promedio de tasas por tip por área
+
+```{r}
+statea<-model.ave.rates %>% 
+  filter(state.00==1) %>% 
+  mutate(ranges="SA") %>% 
+  select(taxon,ranges,speciation,turnover,net.div,extinction,extinct.frac)
+stateb<-model.ave.rates %>% 
+  filter(state.11==1) %>% 
+  mutate(ranges="NA") %>% 
+  select(taxon,ranges,speciation,turnover,net.div,extinction,extinct.frac)
+stateab<-model.ave.rates %>% 
+  filter(state.01==1) %>% 
+  mutate(ranges="WS") %>% 
+  select(taxon,ranges,speciation,turnover,net.div,extinction,extinct.frac)
+statedf<-rbind(statea,stateb,stateab)
+head(statedf)
+```
+
+veamoslas
+```{r}
+medblue<-"#8dcce3"
+
+tunoverplot<-ggplot(statedf,aes(x=ranges,y=turnover,fill=ranges))+
+  geom_boxplot()+
+  theme_classic()+
+  labs(fill="Region")+
+  xlab("")+
+  scale_fill_manual(values=c("#cf4e60",medblue,"#6ac482"))
+tunoverplot
+
+
+```
+
+```{r}
+speciationplot<-ggplot(statedf,aes(x=ranges,y=speciation,fill=ranges))+
+  geom_boxplot()+
+  theme_classic()+
+  labs(fill="Region")+
+  xlab("")+
+  scale_fill_manual(values=c("#cf4e60",medblue,"#6ac482"))
+speciationplot
+
+```
+
+ Extinción
+```{r}
+epsplot<-ggplot(statedf,aes(x=ranges,y=extinction,fill=ranges))+
+  geom_boxplot()+
+  theme_classic()+
+  labs(fill="Region")+
+  xlab("")+
+  scale_fill_manual(values=c("#cf4e60",medblue,"#6ac482"))
+epsplot
+
+```
+
+
